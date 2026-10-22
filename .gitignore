@@ -1,0 +1,31 @@
+# Python 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# 打包与构建产物
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 测试、类型检查和覆盖率缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 编辑器与操作系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
