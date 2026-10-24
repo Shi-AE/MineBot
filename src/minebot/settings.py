@@ -13,7 +13,6 @@ from PySide6.QtCore import (
     Slot,
 )
 
-
 _COLOR_ENTRIES = (
     ("Accent", "#4BD4DE", "主强调色，用于按钮、选中状态和焦点强调。"),
     ("AccentText", "#08282A", "强调色按钮上的文字颜色，应注意与 Accent 保持对比度。"),
@@ -37,20 +36,24 @@ _COLOR_ENTRIES = (
 _GENERAL_ENTRIES = (
     ("WindowAlwaysOnTop", True, "运行时将控制台窗口保持在其他窗口上方。"),
     ("PreserveDashboard", True, "结束任务后保留数据看板中的本次任务内容。"),
+    ("RegionMaskVisible", True, "显示扫雷区域蒙版。"),
 )
 
+_DEFAULT_MASK_OPACITY = 0.5
 _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 class AppSettings(QObject):
     colorsChanged = Signal()
     generalChanged = Signal()
+    maskOpacityChanged = Signal()
 
     def __init__(self, config_path: Path | None = None, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._path = config_path or self._default_path()
         self._colors = {key: value for key, value, _ in _COLOR_ENTRIES}
         self._general = {key: value for key, value, _ in _GENERAL_ENTRIES}
+        self._mask_opacity = _DEFAULT_MASK_OPACITY
 
         if self._path.is_file():
             self._load()
@@ -71,6 +74,10 @@ class AppSettings(QObject):
     @Property("QVariantMap", notify=generalChanged)
     def general(self) -> dict[str, bool]:
         return dict(self._general)
+
+    @Property(float, notify=maskOpacityChanged)
+    def region_mask_opacity(self) -> float:
+        return self._mask_opacity
 
     @Property(str, constant=True)
     def config_path(self) -> str:
@@ -98,6 +105,16 @@ class AppSettings(QObject):
         self._save()
         self.generalChanged.emit()
 
+    @Slot(float)
+    def set_region_mask_opacity(self, value: float) -> None:
+        normalized = min(max(value, 0.0), 1.0)
+        if abs(self._mask_opacity - normalized) < 0.0001:
+            return
+
+        self._mask_opacity = normalized
+        self._save()
+        self.maskOpacityChanged.emit()
+
     def _load(self) -> None:
         parser = configparser.ConfigParser(interpolation=None)
         parser.optionxform = str
@@ -116,6 +133,14 @@ class AppSettings(QObject):
             except ValueError:
                 self._general[key] = default
 
+        try:
+            opacity = parser.getfloat(
+                "general", "RegionMaskOpacity", fallback=_DEFAULT_MASK_OPACITY
+            )
+            self._mask_opacity = min(max(opacity, 0.0), 1.0)
+        except ValueError:
+            self._mask_opacity = _DEFAULT_MASK_OPACITY
+
     def _save(self) -> None:
         content = [
             "# MineBot 用户配置",
@@ -132,6 +157,13 @@ class AppSettings(QObject):
         for key, _, description in _GENERAL_ENTRIES:
             value = "true" if self._general[key] else "false"
             content.extend((f"# {description}", f"{key}={value}"))
+
+        content.extend(
+            (
+                "# 扫雷区域蒙版不透明度，范围 0.0 到 1.0。",
+                f"RegionMaskOpacity={self._mask_opacity:.2f}",
+            )
+        )
 
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)

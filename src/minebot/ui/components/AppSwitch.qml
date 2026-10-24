@@ -27,11 +27,15 @@ Switch {
             color: "#ffffff"
 
             Behavior on x {
-                NumberAnimation { duration: 140 }
+                NumberAnimation {
+                    duration: 140
+                }
             }
         }
     }
 
-    contentItem: Item {}
-    background: Item {}
+    contentItem: Item {
+    }
+    background: Item {
+    }
 }

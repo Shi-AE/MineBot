@@ -1,4 +1,5 @@
-pragma ComponentBehavior: Bound
+pragma
+ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -255,6 +256,128 @@ Item {
                                 Accessible.name: "结束后保留数据看板"
                             }
                         }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: root.theme.borderColor
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 50
+                            spacing: 16
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    text: "显示区域蒙版"
+                                    color: root.theme.textPrimary
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    text: "关闭后仍保留可调整的外框。"
+                                    color: root.theme.textMuted
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 9
+                                }
+                            }
+
+                            AppSwitch {
+                                theme: root.theme
+                                checked: root.theme.regionMaskVisible
+                                onToggled: root.theme.setGeneral("RegionMaskVisible", checked)
+                                Accessible.name: "显示区域蒙版"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: root.theme.borderColor
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 68
+                            spacing: 2
+
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Text {
+                                        text: "蒙版不透明度"
+                                        color: root.theme.textPrimary
+                                        font.family: root.theme.fontFamily
+                                        font.pixelSize: 11
+                                    }
+
+                                    Text {
+                                        text: "数值越低越透明，外框不受影响。"
+                                        color: root.theme.textMuted
+                                        font.family: root.theme.fontFamily
+                                        font.pixelSize: 9
+                                    }
+                                }
+
+                                Text {
+                                    text: Math.round(root.theme.regionMaskOpacity * 100) + "%"
+                                    color: root.theme.accent
+                                    font.family: root.theme.monoFontFamily
+                                    font.pixelSize: 10
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+
+                            Slider {
+                                id: maskOpacitySlider
+
+                                Layout.fillWidth: true
+                                implicitHeight: 20
+                                from: 0
+                                to: 1
+                                stepSize: 0.01
+                                value: root.theme.regionMaskOpacity
+                                onMoved: root.theme.setRegionMaskOpacity(value)
+                                Accessible.name: "蒙版不透明度"
+
+                                background: Rectangle {
+                                    x: 0
+                                    y: (maskOpacitySlider.height - height) / 2
+                                    width: maskOpacitySlider.width
+                                    height: 4
+                                    radius: 2
+                                    color: root.theme.borderColor
+
+                                    Rectangle {
+                                        width: parent.width * maskOpacitySlider.visualPosition
+                                        height: parent.height
+                                        radius: parent.radius
+                                        color: root.theme.accent
+                                    }
+                                }
+
+                                handle: Rectangle {
+                                    x: maskOpacitySlider.visualPosition
+                                        * (maskOpacitySlider.width - width)
+                                    y: (maskOpacitySlider.height - height) / 2
+                                    width: 16
+                                    height: 16
+                                    radius: 8
+                                    color: root.theme.accent
+                                    border.width: 2
+                                    border.color: root.theme.surface
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -329,7 +452,9 @@ Item {
                         Layout.fillWidth: true
                     }
 
-                    Item { Layout.fillHeight: true }
+                    Item {
+                        Layout.fillHeight: true
+                    }
 
                     Rectangle {
                         Layout.fillWidth: true

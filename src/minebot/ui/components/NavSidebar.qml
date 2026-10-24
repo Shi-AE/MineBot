@@ -12,9 +12,15 @@ Rectangle {
     implicitWidth: 204
 
     gradient: Gradient {
-        GradientStop { position: 0.0; color: root.theme.sidebarTop }
-        GradientStop { position: 0.34; color: Qt.darker(root.theme.sidebarTop, 1.12) }
-        GradientStop { position: 1.0; color: root.theme.sidebarBottom }
+        GradientStop {
+            position: 0.0; color: root.theme.sidebarTop
+        }
+        GradientStop {
+            position: 0.34; color: Qt.darker(root.theme.sidebarTop, 1.12)
+        }
+        GradientStop {
+            position: 1.0; color: root.theme.sidebarBottom
+        }
     }
 
     ColumnLayout {
@@ -123,7 +129,9 @@ Rectangle {
             objectName: "settingsNavButton"
         }
 
-        Item { Layout.fillHeight: true }
+        Item {
+            Layout.fillHeight: true
+        }
 
         Rectangle {
             Layout.fillWidth: true

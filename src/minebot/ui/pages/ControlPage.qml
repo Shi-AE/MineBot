@@ -1,4 +1,5 @@
-pragma ComponentBehavior: Bound
+pragma
+ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
@@ -270,7 +271,9 @@ Item {
                                 font.pixelSize: 9
                             }
 
-                            Item { Layout.fillWidth: true }
+                            Item {
+                                Layout.fillWidth: true
+                            }
 
                             Text {
                                 text: "目标：等待框选"

@@ -13,6 +13,8 @@ ApplicationWindow {
 
     signal startRequested()
 
+    signal stopRequested()
+
     readonly property var pageSections: ["任务控制", "实时数据", "设置"]
     readonly property var pageTitles: ["任务控制", "实时数据", "偏好设置"]
 
@@ -35,9 +37,15 @@ ApplicationWindow {
         color: appTheme.pageBackground
 
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.lighter(appTheme.pageBackground, 1.12) }
-            GradientStop { position: 0.42; color: appTheme.pageBackground }
-            GradientStop { position: 1.0; color: Qt.darker(appTheme.pageBackground, 1.12) }
+            GradientStop {
+                position: 0.0; color: Qt.lighter(appTheme.pageBackground, 1.12)
+            }
+            GradientStop {
+                position: 0.42; color: appTheme.pageBackground
+            }
+            GradientStop {
+                position: 1.0; color: Qt.darker(appTheme.pageBackground, 1.12)
+            }
         }
     }
 
@@ -69,6 +77,7 @@ ApplicationWindow {
                     sectionText: root.pageSections[root.currentPage]
                     titleText: root.pageTitles[root.currentPage]
                     onStartRequested: root.startRequested()
+                    onStopRequested: root.stopRequested()
                     onSettingsRequested: root.currentPage = 2
                 }
 
@@ -96,4 +105,6 @@ ApplicationWindow {
             }
         }
     }
+
+    onClosing: root.stopRequested()
 }

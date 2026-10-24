@@ -11,6 +11,9 @@ Rectangle {
     property string titleText: ""
 
     signal startRequested()
+
+    signal stopRequested()
+
     signal settingsRequested()
 
     implicitHeight: 84
@@ -89,15 +92,15 @@ Rectangle {
             ActionButton {
                 theme: root.theme
                 text: "结束"
-                enabled: false
                 outlined: true
                 dangerous: true
                 foreground: root.theme.danger
                 fillColor: root.theme.dangerSoft
                 objectName: "stopButton"
+                onClicked: root.stopRequested()
 
                 ToolTip.visible: hovered
-                ToolTip.text: "自动扫雷功能待接入"
+                ToolTip.text: "关闭区域蒙版"
             }
 
             SettingsButton {
