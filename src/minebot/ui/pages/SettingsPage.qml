@@ -314,6 +314,99 @@ Item {
                                     spacing: 2
 
                                     Text {
+                                        text: "捕获频率"
+                                        color: root.theme.textPrimary
+                                        font.family: root.theme.fontFamily
+                                        font.pixelSize: 11
+                                    }
+
+                                    Text {
+                                        text: "拖动调整，步长 0.1 次/秒。"
+                                        color: root.theme.textMuted
+                                        font.family: root.theme.fontFamily
+                                        font.pixelSize: 9
+                                    }
+                                }
+
+                                Text {
+                                    text: captureFrequencySlider.value.toFixed(1) + " FPS"
+                                    color: root.theme.accent
+                                    font.family: root.theme.monoFontFamily
+                                    font.pixelSize: 10
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+
+                            Slider {
+                                id: captureFrequencySlider
+
+                                Layout.fillWidth: true
+                                implicitHeight: 20
+                                from: 0.1
+                                to: 10.0
+                                stepSize: 0.1
+                                value: root.theme.captureFrequency
+                                Accessible.name: "捕获频率"
+
+                                onPressedChanged: {
+                                    if (!pressed)
+                                        root.theme.setCaptureFrequency(value);
+                                }
+
+                                onMoved: {
+                                    if (!pressed)
+                                        root.theme.setCaptureFrequency(value);
+                                }
+
+                                background: Rectangle {
+                                    x: 0
+                                    y: (captureFrequencySlider.height - height) / 2
+                                    width: captureFrequencySlider.width
+                                    height: 4
+                                    radius: 2
+                                    color: root.theme.borderColor
+
+                                    Rectangle {
+                                        width: parent.width * captureFrequencySlider.visualPosition
+                                        height: parent.height
+                                        radius: parent.radius
+                                        color: root.theme.accent
+                                    }
+                                }
+
+                                handle: Rectangle {
+                                    x: captureFrequencySlider.visualPosition
+                                        * (captureFrequencySlider.width - width)
+                                    y: (captureFrequencySlider.height - height) / 2
+                                    width: 16
+                                    height: 16
+                                    radius: 8
+                                    color: root.theme.accent
+                                    border.width: 2
+                                    border.color: root.theme.surface
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: root.theme.borderColor
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 68
+                            spacing: 2
+
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Text {
                                         text: "蒙版不透明度"
                                         color: root.theme.textPrimary
                                         font.family: root.theme.fontFamily
@@ -444,6 +537,23 @@ Item {
 
                     Text {
                         text: root.theme.configPath
+                        color: root.theme.textMuted
+                        font.family: root.theme.monoFontFamily
+                        font.pixelSize: 9
+                        wrapMode: Text.WrapAnywhere
+                        lineHeight: 1.35
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: "截图缓存"
+                        color: root.theme.textFaint
+                        font.family: root.theme.fontFamily
+                        font.pixelSize: 9
+                    }
+
+                    Text {
+                        text: root.theme.captureCachePath
                         color: root.theme.textMuted
                         font.family: root.theme.monoFontFamily
                         font.pixelSize: 9

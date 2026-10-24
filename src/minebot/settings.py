@@ -1,4 +1,5 @@
 import configparser
+import math
 import re
 import sys
 from pathlib import Path
@@ -40,6 +41,9 @@ _GENERAL_ENTRIES = (
 )
 
 _DEFAULT_MASK_OPACITY = 0.5
+_DEFAULT_CAPTURE_FREQUENCY = 2.0
+_MIN_CAPTURE_FREQUENCY = 0.1
+_MAX_CAPTURE_FREQUENCY = 10.0
 _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
@@ -47,6 +51,7 @@ class AppSettings(QObject):
     colorsChanged = Signal()
     generalChanged = Signal()
     maskOpacityChanged = Signal()
+    captureFrequencyChanged = Signal()
 
     def __init__(self, config_path: Path | None = None, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -54,6 +59,7 @@ class AppSettings(QObject):
         self._colors = {key: value for key, value, _ in _COLOR_ENTRIES}
         self._general = {key: value for key, value, _ in _GENERAL_ENTRIES}
         self._mask_opacity = _DEFAULT_MASK_OPACITY
+        self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
 
         if self._path.is_file():
             self._load()
@@ -79,9 +85,20 @@ class AppSettings(QObject):
     def region_mask_opacity(self) -> float:
         return self._mask_opacity
 
+    @Property(float, notify=captureFrequencyChanged)
+    def capture_frequency(self) -> float:
+        return self._capture_frequency
+
     @Property(str, constant=True)
     def config_path(self) -> str:
         return str(self._path)
+
+    @Property(str, constant=True)
+    def capture_cache_path(self) -> str:
+        cache_directory = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.CacheLocation
+        )
+        return str(Path(cache_directory) / "captures" / "latest.png")
 
     @Slot(str, str)
     def set_color(self, key: str, value: str) -> None:
@@ -115,6 +132,21 @@ class AppSettings(QObject):
         self._save()
         self.maskOpacityChanged.emit()
 
+    @Slot(float)
+    def set_capture_frequency(self, value: float) -> None:
+        if not math.isfinite(value):
+            return
+        normalized = min(
+            max(round(value, 2), _MIN_CAPTURE_FREQUENCY),
+            _MAX_CAPTURE_FREQUENCY,
+        )
+        if abs(self._capture_frequency - normalized) < 0.0001:
+            return
+
+        self._capture_frequency = normalized
+        self._save()
+        self.captureFrequencyChanged.emit()
+
     def _load(self) -> None:
         parser = configparser.ConfigParser(interpolation=None)
         parser.optionxform = str
@@ -141,6 +173,21 @@ class AppSettings(QObject):
         except ValueError:
             self._mask_opacity = _DEFAULT_MASK_OPACITY
 
+        try:
+            frequency = parser.getfloat(
+                "general",
+                "CaptureFrequency",
+                fallback=_DEFAULT_CAPTURE_FREQUENCY,
+            )
+            if not math.isfinite(frequency):
+                frequency = _DEFAULT_CAPTURE_FREQUENCY
+            self._capture_frequency = min(
+                max(round(frequency, 2), _MIN_CAPTURE_FREQUENCY),
+                _MAX_CAPTURE_FREQUENCY,
+            )
+        except ValueError:
+            self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
+
     def _save(self) -> None:
         content = [
             "# MineBot 用户配置",
@@ -162,6 +209,8 @@ class AppSettings(QObject):
             (
                 "# 扫雷区域蒙版不透明度，范围 0.0 到 1.0。",
                 f"RegionMaskOpacity={self._mask_opacity:.2f}",
+                "# 捕获频率，单位 FPS，范围 0.1 到 10.0。",
+                f"CaptureFrequency={self._capture_frequency:.2f}",
             )
         )
 

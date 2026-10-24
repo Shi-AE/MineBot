@@ -10,10 +10,12 @@ QtObject {
     readonly property string fontFamily: "Microsoft YaHei UI"
     readonly property string monoFontFamily: "Consolas"
     readonly property string configPath: root.settings.config_path
+    readonly property string captureCachePath: root.settings.capture_cache_path
     readonly property bool windowAlwaysOnTop: root.generalValues["WindowAlwaysOnTop"]
     readonly property bool preserveDashboard: root.generalValues["PreserveDashboard"]
     readonly property bool regionMaskVisible: root.generalValues["RegionMaskVisible"]
     readonly property real regionMaskOpacity: root.settings.region_mask_opacity
+    readonly property real captureFrequency: root.settings.capture_frequency
 
     readonly property color accent: root.colors["Accent"]
     readonly property color accentText: root.colors["AccentText"]
@@ -52,6 +54,10 @@ QtObject {
 
     function setRegionMaskOpacity(value) {
         root.settings.set_region_mask_opacity(value);
+    }
+
+    function setCaptureFrequency(value) {
+        root.settings.set_capture_frequency(value);
     }
 
     function themeName(colorValue) {

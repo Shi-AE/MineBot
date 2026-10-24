@@ -10,6 +10,7 @@ Window {
     readonly property color accentColor: frameWindow.settings.colors["Accent"]
 
     property int edgeSize: 12
+    readonly property int cornerRadius: 8
 
     width: 800
     height: 560
@@ -90,7 +91,7 @@ Window {
         color: "transparent"
         border.width: 2
         border.color: frameWindow.accentColor
-        radius: 8
+        radius: frameWindow.cornerRadius
     }
 
     Rectangle {
@@ -145,6 +146,7 @@ Window {
 
             Rectangle {
                 anchors.fill: parent
+                radius: frameWindow.cornerRadius
                 color: frameWindow.accentColor
             }
         }
