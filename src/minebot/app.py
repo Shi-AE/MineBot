@@ -1,3 +1,15 @@
+import sys
+
+from PySide6.QtGui import QGuiApplication
+
+from .settings import AppSettings
+from .ui.application import run_application
+
+
 def main() -> int:
-    print("MineBot")
-    return 0
+    app = QGuiApplication(sys.argv)
+    app.setApplicationName("MineBot")
+    app.setOrganizationName("MineBot")
+    app.setApplicationVersion("0.1.0")
+
+    return run_application(app, AppSettings())
