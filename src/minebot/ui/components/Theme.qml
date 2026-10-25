@@ -16,6 +16,9 @@ QtObject {
     readonly property bool regionMaskVisible: root.generalValues["RegionMaskVisible"]
     readonly property real regionMaskOpacity: root.settings.region_mask_opacity
     readonly property real captureFrequency: root.settings.capture_frequency
+    readonly property var processorOptions: root.settings.processor_options
+    readonly property string selectedProcessor: root.settings.selected_processor
+    readonly property string activeProcessorLabel: root.settings.active_processor_label
 
     readonly property color accent: root.colors["Accent"]
     readonly property color accentText: root.colors["AccentText"]
@@ -58,6 +61,18 @@ QtObject {
 
     function setCaptureFrequency(value) {
         root.settings.set_capture_frequency(value);
+    }
+
+    function setDetectionProcessor(value) {
+        root.settings.set_detector_processor(value);
+    }
+
+    function processorIndex(value) {
+        for (let index = 0; index < root.processorOptions.length; index += 1) {
+            if (root.processorOptions[index].value === value)
+                return index;
+        }
+        return 0;
     }
 
     function themeName(colorValue) {

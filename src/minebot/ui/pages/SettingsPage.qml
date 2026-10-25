@@ -178,6 +178,95 @@ Item {
                         Layout.margins: 18
                         spacing: 0
 
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 64
+                            spacing: 16
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    text: "识别处理器"
+                                    color: root.theme.textPrimary
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    text: "当前使用：" + root.theme.activeProcessorLabel
+                                    color: root.theme.textMuted
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 9
+                                }
+                            }
+
+                            ComboBox {
+                                id: processorCombo
+
+                                Layout.preferredWidth: 300
+                                implicitHeight: 34
+                                model: root.theme.processorOptions
+                                textRole: "label"
+                                valueRole: "value"
+                                currentIndex: root.theme.processorIndex(
+                                    root.theme.selectedProcessor
+                                )
+                                Accessible.name: "识别处理器"
+
+                                onActivated: root.theme.setDetectionProcessor(
+                                    currentValue
+                                )
+
+                                contentItem: Text {
+                                    leftPadding: 12
+                                    rightPadding: 30
+                                    text: processorCombo.displayText
+                                    color: root.theme.textPrimary
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 10
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                }
+
+                                background: Rectangle {
+                                    radius: 8
+                                    color: root.theme.surfaceAlt
+                                    border.width: 1
+                                    border.color: processorCombo.activeFocus
+                                        ? root.theme.accent
+                                        : root.theme.borderColor
+                                }
+
+                                indicator: Text {
+                                    x: parent.width - width - 11
+                                    y: (parent.height - height) / 2
+                                    text: "⌄"
+                                    color: root.theme.textMuted
+                                    font.pixelSize: 12
+                                }
+
+                                delegate: ItemDelegate {
+                                    required property int index
+                                    required property var modelData
+
+                                    width: processorCombo.width
+                                    text: modelData.label
+                                    highlighted: processorCombo.highlightedIndex
+                                        === index
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: root.theme.borderColor
+                        }
+
                         Text {
                             Layout.bottomMargin: 10
                             text: "通用"

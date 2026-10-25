@@ -29,3 +29,9 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+/test/
+
+# Local model artifacts
+/models/
+/training-runs/
+/yolo*.pt

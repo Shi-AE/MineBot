@@ -14,6 +14,8 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from .processors import detect_processor_options
+
 _COLOR_ENTRIES = (
     ("Accent", "#4BD4DE", "主强调色，用于按钮、选中状态和焦点强调。"),
     ("AccentText", "#08282A", "强调色按钮上的文字颜色，应注意与 Accent 保持对比度。"),
@@ -52,6 +54,8 @@ class AppSettings(QObject):
     generalChanged = Signal()
     maskOpacityChanged = Signal()
     captureFrequencyChanged = Signal()
+    detectorProcessorChanged = Signal()
+    activeProcessorChanged = Signal()
 
     def __init__(self, config_path: Path | None = None, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -60,6 +64,10 @@ class AppSettings(QObject):
         self._general = {key: value for key, value, _ in _GENERAL_ENTRIES}
         self._mask_opacity = _DEFAULT_MASK_OPACITY
         self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
+        self._processor_options = detect_processor_options()
+        self._selected_processor = "auto"
+        self._active_processor_value = ""
+        self._active_processor_label = "等待识别服务"
 
         if self._path.is_file():
             self._load()
@@ -88,6 +96,18 @@ class AppSettings(QObject):
     @Property(float, notify=captureFrequencyChanged)
     def capture_frequency(self) -> float:
         return self._capture_frequency
+
+    @Property("QVariantList", notify=detectorProcessorChanged)
+    def processor_options(self) -> list[dict[str, object]]:
+        return [dict(option) for option in self._processor_options]
+
+    @Property(str, notify=detectorProcessorChanged)
+    def selected_processor(self) -> str:
+        return self._selected_processor
+
+    @Property(str, notify=activeProcessorChanged)
+    def active_processor_label(self) -> str:
+        return self._active_processor_label
 
     @Property(str, constant=True)
     def config_path(self) -> str:
@@ -147,6 +167,42 @@ class AppSettings(QObject):
         self._save()
         self.captureFrequencyChanged.emit()
 
+    @Slot(str)
+    def set_detector_processor(self, value: str) -> None:
+        if value not in self._processor_values():
+            return
+        if self._selected_processor == value:
+            return
+
+        self._selected_processor = value
+        self._active_processor_label = "正在切换处理器"
+        self._save()
+        self.detectorProcessorChanged.emit()
+        self.activeProcessorChanged.emit()
+
+    @Slot(str)
+    def set_active_processor(self, value: str) -> None:
+        label = next(
+            (
+                str(option["label"])
+                for option in self._processor_options
+                if option["value"] == value
+            ),
+            value,
+        )
+        if (
+            value == self._active_processor_value
+            and label == self._active_processor_label
+        ):
+            return
+
+        self._active_processor_value = value
+        self._active_processor_label = label
+        self.activeProcessorChanged.emit()
+
+    def _processor_values(self) -> set[str]:
+        return {str(option["value"]) for option in self._processor_options}
+
     def _load(self) -> None:
         parser = configparser.ConfigParser(interpolation=None)
         parser.optionxform = str
@@ -188,6 +244,11 @@ class AppSettings(QObject):
         except ValueError:
             self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
 
+        processor = parser.get("general", "DetectionProcessor", fallback="auto")
+        if processor not in self._processor_values():
+            processor = "auto"
+        self._selected_processor = processor
+
     def _save(self) -> None:
         content = [
             "# MineBot 用户配置",
@@ -211,6 +272,8 @@ class AppSettings(QObject):
                 f"RegionMaskOpacity={self._mask_opacity:.2f}",
                 "# 捕获频率，单位 FPS，范围 0.1 到 10.0。",
                 f"CaptureFrequency={self._capture_frequency:.2f}",
+                "# Detector processor: auto, cpu, or cuda:<GPU index>.",
+                f"DetectionProcessor={self._selected_processor}",
             )
         )
 

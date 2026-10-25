@@ -9,7 +9,11 @@ description = "扫雷机器人"
 requires-python = ">=3.10"
 dependencies = [
     "PySide6==6.12.0",
-    "mss==10.2.0"
+    "mss==10.2.0",
+    "numpy==2.5.2",
+    "nvidia-ml-py==13.615.71",
+    "opencv-python==5.0.0.93",
+    "onnxruntime-gpu==1.31.0"
 ]
 
 [project.scripts]
