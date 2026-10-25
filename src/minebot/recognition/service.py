@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, QRect, QThread, Signal, Slot
 from PySide6.QtGui import QImage
 
 from .detector import Box, DetectionResult, Detector
+from .grid import detect_grid
 
 
 class _RecognitionThread(QThread):
@@ -80,29 +81,59 @@ class _RecognitionThread(QThread):
             image.height(),
             fraction=0.01,
         )
-        crops = [("minefield.png", minefield)]
+        minefield_image = image.copy(
+            _box_to_rect(minefield, image.width(), image.height())
+        )
+        crops: list[tuple[str, QImage]] = [("minefield.png", minefield_image)]
         crops.extend(
-            (f"counter_{index}.png", box)
+            (
+                f"counter_{index}.png",
+                image.copy(
+                    _box_to_rect(box, image.width(), image.height())
+                ),
+            )
             for index, box in enumerate(result.remaining_counters, start=1)
         )
 
         pending: list[tuple[Path, Path]] = []
         try:
-            for name, box in crops:
+            for name, crop in crops:
                 target = self._output_dir / name
                 temporary = self._output_dir / f".{name}.tmp"
-                crop = image.copy(
-                    _box_to_rect(box, image.width(), image.height())
-                )
                 if not crop.save(str(temporary), "PNG"):
                     raise OSError(f"failed to save {temporary}")
                 pending.append((temporary, target))
+
+            grid = detect_grid(minefield_image)
+            if grid is not None:
+                pending.extend(self._save_grid_cells(minefield_image, grid))
 
             for temporary, target in pending:
                 os.replace(temporary, target)
         finally:
             for temporary, _ in pending:
                 temporary.unlink(missing_ok=True)
+
+    def _save_grid_cells(self, image: QImage, grid) -> list[tuple[Path, Path]]:
+        cells_dir = self._output_dir / "cells"
+        cells_dir.mkdir(parents=True, exist_ok=True)
+        expected_names: set[str] = set()
+        pending: list[tuple[Path, Path]] = []
+        for row in range(grid.rows):
+            for column in range(grid.columns):
+                name = f"row_{row + 1:03d}_col_{column + 1:03d}.png"
+                expected_names.add(name)
+                target = cells_dir / name
+                temporary = cells_dir / f".{name}.tmp"
+                crop = image.copy(grid.cell_rect(row, column))
+                if not crop.save(str(temporary), "PNG"):
+                    raise OSError(f"failed to save {temporary}")
+                pending.append((temporary, target))
+
+        for stale in cells_dir.glob("row_*_col_*.png"):
+            if stale.name not in expected_names:
+                stale.unlink(missing_ok=True)
+        return pending
 
 
 class RecognitionService(QObject):
