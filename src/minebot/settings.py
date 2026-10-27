@@ -40,6 +40,7 @@ _GENERAL_ENTRIES = (
     ("WindowAlwaysOnTop", True, "运行时将控制台窗口保持在其他窗口上方。"),
     ("PreserveDashboard", True, "结束任务后保留数据看板中的本次任务内容。"),
     ("RegionMaskVisible", True, "显示扫雷区域蒙版。"),
+    ("DeveloperMode", False, "Asynchronously save recognition crops for development."),
 )
 
 _DEFAULT_MASK_OPACITY = 0.5

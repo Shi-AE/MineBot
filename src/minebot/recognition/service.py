@@ -1,40 +1,81 @@
 import math
-import os
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRect, QThread, Signal, Slot
 from PySide6.QtGui import QImage
 
+from .classifier import Classifier
+from .counter import split_counter
 from .detector import Box, DetectionResult, Detector
 from .grid import detect_grid
+from .types import (
+    CellRecognition,
+    Classification,
+    CounterRecognition,
+    RecognitionSnapshot,
+    snapshot_to_qml,
+)
+from .writer import DebugFrame, DebugWriter
+
+
+_THRESHOLD_VERSION = "field-uncalibrated-v1"
+_UNKNOWN = Classification("UNKNOWN", "UNKNOWN", 0.0, 0.0)
+
+
+@dataclass(frozen=True)
+class DecisionThresholds:
+    confidence: float
+    margin: float
+
+
+_CELL_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
+_FLAG_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
+_SLOT_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
+
+
+@dataclass(frozen=True)
+class RecognitionModels:
+    detector_model: Path
+    detector_metadata: Path
+    cell_model: Path
+    cell_metadata: Path
+    flag_model: Path
+    flag_metadata: Path
+    slot_model: Path
+    slot_metadata: Path
 
 
 class _RecognitionThread(QThread):
-    detectionSaved = Signal(int, object)
+    snapshotReady = Signal(object)
     processorChanged = Signal(str)
     errorRaised = Signal(str)
 
     def __init__(
         self,
-        model_path: Path,
-        metadata_path: Path,
-        output_dir: Path,
+        models: RecognitionModels,
         processor: str,
+        debug_writer: DebugWriter,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._model_path = model_path
-        self._metadata_path = metadata_path
-        self._output_dir = output_dir
+        self._models = models
         self._processor = processor
+        self._debug_writer = debug_writer
         self._condition = threading.Condition()
-        self._pending: tuple[int, QImage] | None = None
+        self._pending: tuple[int, QImage, dict[str, int]] | None = None
         self._stopping = False
 
-    def submit(self, frame_number: int, image: QImage) -> None:
+    def submit(
+        self,
+        frame_number: int,
+        image: QImage,
+        rect: dict[str, int],
+    ) -> None:
         with self._condition:
-            self._pending = (frame_number, image.copy())
+            self._pending = (frame_number, image.copy(), dict(rect))
             self._condition.notify()
 
     def stop(self) -> None:
@@ -46,14 +87,38 @@ class _RecognitionThread(QThread):
     def run(self) -> None:
         try:
             detector = Detector(
-                self._model_path,
-                self._metadata_path,
+                self._models.detector_model,
+                self._models.detector_metadata,
                 self._processor,
             )
+            cell_classifier = self._classifier(
+                self._models.cell_model,
+                self._models.cell_metadata,
+                _CELL_THRESHOLDS,
+            )
+            flag_classifier = self._classifier(
+                self._models.flag_model,
+                self._models.flag_metadata,
+                _FLAG_THRESHOLDS,
+            )
+            slot_classifier = self._classifier(
+                self._models.slot_model,
+                self._models.slot_metadata,
+                _SLOT_THRESHOLDS,
+            )
         except Exception as error:
-            self.errorRaised.emit(f"failed to initialize detector: {error}")
+            self.errorRaised.emit(f"failed to initialize recognition models: {error}")
             return
-        self.processorChanged.emit(detector.processor)
+
+        processors = {
+            detector.processor,
+            cell_classifier.processor,
+            flag_classifier.processor,
+            slot_classifier.processor,
+        }
+        self.processorChanged.emit(
+            processors.pop() if len(processors) == 1 else "mixed"
+        )
 
         while True:
             with self._condition:
@@ -61,100 +126,211 @@ class _RecognitionThread(QThread):
                     self._condition.wait()
                 if self._stopping:
                     return
-                frame_number, image = self._pending
+                frame_number, image, rect = self._pending
                 self._pending = None
 
             try:
-                result = detector.detect(image)
-                if result is None:
-                    continue
-                self._save_crops(image, result)
-                self.detectionSaved.emit(frame_number, result)
+                snapshot = self._recognize(
+                    frame_number,
+                    image,
+                    rect,
+                    detector,
+                    cell_classifier,
+                    flag_classifier,
+                    slot_classifier,
+                )
+                if snapshot is not None:
+                    self.snapshotReady.emit(snapshot_to_qml(snapshot))
             except Exception as error:
                 self.errorRaised.emit(f"frame {frame_number}: {error}")
 
-    def _save_crops(self, image: QImage, result: DetectionResult) -> None:
-        self._output_dir.mkdir(parents=True, exist_ok=True)
-        minefield = _expand_box(
-            result.minefield,
+    def _classifier(
+        self,
+        model_path: Path,
+        metadata_path: Path,
+        thresholds: DecisionThresholds,
+    ) -> Classifier:
+        return Classifier(
+            model_path,
+            metadata_path,
+            self._processor,
+            confidence_threshold=thresholds.confidence,
+            margin_threshold=thresholds.margin,
+        )
+
+    def _recognize(
+        self,
+        frame_number: int,
+        image: QImage,
+        rect: dict[str, int],
+        detector: Detector,
+        cell_classifier: Classifier,
+        flag_classifier: Classifier,
+        slot_classifier: Classifier,
+    ) -> RecognitionSnapshot | None:
+        started_at = time.perf_counter()
+        detection_started_at = time.perf_counter()
+        detection = detector.detect(image)
+        detection_ms = _elapsed_ms(detection_started_at)
+        if detection is None:
+            return None
+
+        minefield_box = _expand_box(
+            detection.minefield,
             image.width(),
             image.height(),
             fraction=0.01,
         )
-        minefield_image = image.copy(
-            _box_to_rect(minefield, image.width(), image.height())
+        minefield = image.copy(
+            _box_to_rect(minefield_box, image.width(), image.height())
         )
-        crops: list[tuple[str, QImage]] = [("minefield.png", minefield_image)]
-        crops.extend(
-            (
-                f"counter_{index}.png",
-                image.copy(
-                    _box_to_rect(box, image.width(), image.height())
-                ),
-            )
-            for index, box in enumerate(result.remaining_counters, start=1)
+        counter_images = tuple(
+            image.copy(_box_to_rect(box, image.width(), image.height()))
+            for box in detection.remaining_counters
         )
 
-        pending: list[tuple[Path, Path]] = []
-        try:
-            for name, crop in crops:
-                target = self._output_dir / name
-                temporary = self._output_dir / f".{name}.tmp"
-                if not crop.save(str(temporary), "PNG"):
-                    raise OSError(f"failed to save {temporary}")
-                pending.append((temporary, target))
+        grid_started_at = time.perf_counter()
+        grid = detect_grid(minefield)
+        grid_ms = _elapsed_ms(grid_started_at)
+        if grid is None:
+            return None
 
-            grid = detect_grid(minefield_image)
-            if grid is not None:
-                pending.extend(self._save_grid_cells(minefield_image, grid))
-
-            for temporary, target in pending:
-                os.replace(temporary, target)
-        finally:
-            for temporary, _ in pending:
-                temporary.unlink(missing_ok=True)
-
-    def _save_grid_cells(self, image: QImage, grid) -> list[tuple[Path, Path]]:
-        cells_dir = self._output_dir / "cells"
-        cells_dir.mkdir(parents=True, exist_ok=True)
-        expected_names: set[str] = set()
-        pending: list[tuple[Path, Path]] = []
+        cell_images: list[QImage] = []
         for row in range(grid.rows):
             for column in range(grid.columns):
-                name = f"row_{row + 1:03d}_col_{column + 1:03d}.png"
-                expected_names.add(name)
-                target = cells_dir / name
-                temporary = cells_dir / f".{name}.tmp"
-                crop = image.copy(grid.cell_rect(row, column))
-                if not crop.save(str(temporary), "PNG"):
-                    raise OSError(f"failed to save {temporary}")
-                pending.append((temporary, target))
+                cell_images.append(minefield.copy(grid.cell_rect(row, column)))
 
-        for stale in cells_dir.glob("row_*_col_*.png"):
-            if stale.name not in expected_names:
-                stale.unlink(missing_ok=True)
-        return pending
+        if self._debug_writer.is_enabled():
+            self._debug_writer.submit(
+                DebugFrame(
+                    minefield=minefield,
+                    counters=counter_images,
+                    cells=tuple(cell_images),
+                    rows=grid.rows,
+                    columns=grid.columns,
+                )
+            )
+
+        cells_started_at = time.perf_counter()
+        cell_predictions = cell_classifier.predict(cell_images)
+        cells_ms = _elapsed_ms(cells_started_at)
+        cells = tuple(
+            CellRecognition(
+                row=index // grid.columns,
+                column=index % grid.columns,
+                classification=prediction,
+            )
+            for index, prediction in enumerate(cell_predictions)
+        )
+
+        counters_started_at = time.perf_counter()
+        counters = self._recognize_counters(
+            detection,
+            counter_images,
+            flag_classifier,
+            slot_classifier,
+        )
+        counters_ms = _elapsed_ms(counters_started_at)
+        total_ms = _elapsed_ms(started_at)
+
+        return RecognitionSnapshot(
+            frame_number=frame_number,
+            captured_at=time.time(),
+            capture_rect=dict(rect),
+            provider=detector.processor,
+            rows=grid.rows,
+            columns=grid.columns,
+            cells=cells,
+            counters=counters,
+            timings_ms={
+                "detection": detection_ms,
+                "grid": grid_ms,
+                "cells": cells_ms,
+                "counters": counters_ms,
+                "total": total_ms,
+            },
+            thresholds=_threshold_map(),
+            threshold_version=_THRESHOLD_VERSION,
+        )
+
+    @staticmethod
+    def _recognize_counters(
+        detection: DetectionResult,
+        images: tuple[QImage, ...],
+        flag_classifier: Classifier,
+        slot_classifier: Classifier,
+    ) -> tuple[CounterRecognition, ...]:
+        parts = []
+        for image in images:
+            try:
+                parts.append(split_counter(image))
+            except ValueError:
+                parts.append(None)
+
+        valid_flag_indexes = [
+            index for index, item in enumerate(parts) if item is not None
+        ]
+        flag_predictions = flag_classifier.predict(
+            [parts[index].flag for index in valid_flag_indexes]
+        )
+        flags = {
+            index: prediction
+            for index, prediction in zip(
+                valid_flag_indexes,
+                flag_predictions,
+                strict=True,
+            )
+        }
+
+        slot_images: list[QImage] = []
+        slot_owners: list[tuple[int, int]] = []
+        for index, item in enumerate(parts):
+            if item is None:
+                continue
+            for slot_index, image in enumerate(item.slots):
+                slot_images.append(image)
+                slot_owners.append((index, slot_index))
+        slot_predictions = slot_classifier.predict(slot_images)
+        slots_by_counter: dict[int, list[Classification]] = {
+            index: [] for index in valid_flag_indexes
+        }
+        for (counter_index, _), prediction in zip(
+            slot_owners,
+            slot_predictions,
+            strict=True,
+        ):
+            slots_by_counter[counter_index].append(prediction)
+
+        counters: list[CounterRecognition] = []
+        for index, box in enumerate(detection.remaining_counters):
+            counters.append(
+                CounterRecognition(
+                    position=index + 1,
+                    box=_box_dict(box),
+                    flag=flags.get(index),
+                    slots=tuple(slots_by_counter.get(index, [_UNKNOWN] * 4)),
+                )
+            )
+        return tuple(counters)
 
 
 class RecognitionService(QObject):
-    detectionSaved = Signal(int, object)
+    snapshotReady = Signal(object)
     processorChanged = Signal(str)
     errorRaised = Signal(str)
 
     def __init__(
         self,
-        model_path: Path,
-        metadata_path: Path,
+        models: RecognitionModels,
         output_dir: Path,
         processor: str = "auto",
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._model_path = model_path
-        self._metadata_path = metadata_path
-        self._output_dir = output_dir
+        self._models = models
         self._processor = processor
         self._thread: _RecognitionThread | None = None
+        self._debug_writer = DebugWriter(output_dir, self._on_error)
 
     @Slot()
     def start(self) -> None:
@@ -162,13 +338,12 @@ class RecognitionService(QObject):
             return
 
         thread = _RecognitionThread(
-            self._model_path,
-            self._metadata_path,
-            self._output_dir,
+            self._models,
             self._processor,
+            self._debug_writer,
             self,
         )
-        thread.detectionSaved.connect(self.detectionSaved)
+        thread.snapshotReady.connect(self.snapshotReady)
         thread.processorChanged.connect(self.processorChanged)
         thread.errorRaised.connect(self._on_error)
         thread.finished.connect(lambda: self._recognition_finished(thread))
@@ -182,30 +357,41 @@ class RecognitionService(QObject):
             return
         self._processor = processor
         if self._thread is not None and self._thread.isRunning():
-            self.stop()
+            self.stop_thread()
             self.start()
+
+    @Slot(bool)
+    def set_developer_mode(self, enabled: bool) -> None:
+        self._debug_writer.set_enabled(enabled)
 
     @Slot(int, QImage, object)
     def submit_frame(
         self,
         frame_number: int,
         image: QImage,
-        _rect: object,
+        rect: object,
     ) -> None:
         if self._thread is None or not self._thread.isRunning():
             return
-        self._thread.submit(frame_number, image)
+        if not isinstance(rect, dict):
+            return
+        self._thread.submit(frame_number, image, rect)
 
     @Slot()
-    def stop(self) -> None:
+    def stop_thread(self) -> None:
         thread = self._thread
         if thread is None:
             return
 
         self._thread = None
         thread.stop()
-        if not thread.wait(2000):
+        if not thread.wait(15000):
             self.errorRaised.emit("recognition worker did not stop in time")
+
+    @Slot()
+    def stop(self) -> None:
+        self.stop_thread()
+        self._debug_writer.stop()
 
     @Slot(str)
     def _on_error(self, message: str) -> None:
@@ -240,3 +426,31 @@ def _box_to_rect(box: Box, image_width: int, image_height: int) -> QRect:
     x2 = max(x1 + 1, min(image_width, math.ceil(box.x2)))
     y2 = max(y1 + 1, min(image_height, math.ceil(box.y2)))
     return QRect(x1, y1, x2 - x1, y2 - y1)
+
+
+def _box_dict(box: Box) -> dict[str, float]:
+    return {
+        "x1": box.x1,
+        "y1": box.y1,
+        "x2": box.x2,
+        "y2": box.y2,
+        "confidence": box.confidence,
+    }
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return (time.perf_counter() - started_at) * 1000.0
+
+
+def _threshold_map() -> dict[str, dict[str, float]]:
+    return {
+        name: {
+            "confidence": thresholds.confidence,
+            "margin": thresholds.margin,
+        }
+        for name, thresholds in (
+            ("cell", _CELL_THRESHOLDS),
+            ("flag", _FLAG_THRESHOLDS),
+            ("slot", _SLOT_THRESHOLDS),
+        )
+    }

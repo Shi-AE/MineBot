@@ -8,6 +8,7 @@ ApplicationWindow {
     id: root
 
     required property var appSettings
+    required property var recognitionState
 
     property int currentPage: 0
 
@@ -30,6 +31,7 @@ ApplicationWindow {
     Theme {
         id: appTheme
         settings: root.appSettings
+        recognitionState: root.recognitionState
     }
 
     Rectangle {

@@ -5,8 +5,13 @@ from PySide6.QtGui import QGuiApplication
 
 from .capture import CaptureService
 from .capture.console import ConsolePreview
-from .recognition import RecognitionService
+from .recognition import (
+    RecognitionModels,
+    RecognitionService,
+    RecognitionViewState,
+)
 from .settings import AppSettings
+from .solver import SolverAdapter
 from .ui.application import run_application
 
 
@@ -28,21 +33,91 @@ def main() -> int:
     capture_service.errorRaised.connect(console_preview.handle_error)
 
     project_root = Path(__file__).resolve().parents[2]
+    models = RecognitionModels(
+        detector_model=(
+            project_root
+            / "models"
+            / "detector"
+            / "minebot-yolo26n-detector-v1.onnx"
+        ),
+        detector_metadata=(
+            project_root
+            / "models"
+            / "detector"
+            / "minebot-yolo26n-detector-v1.json"
+        ),
+        cell_model=(
+            project_root
+            / "models"
+            / "cell_recognizer"
+            / "light-cnn-64-v2"
+            / "cell-recognizer-v1.onnx"
+        ),
+        cell_metadata=(
+            project_root
+            / "models"
+            / "cell_recognizer"
+            / "light-cnn-64-v2"
+            / "model_metadata.json"
+        ),
+        flag_model=(
+            project_root
+            / "models"
+            / "counter_recognizer"
+            / "counter-recognizer-v3"
+            / "flags"
+            / "flag-recognizer-v1.onnx"
+        ),
+        flag_metadata=(
+            project_root
+            / "models"
+            / "counter_recognizer"
+            / "counter-recognizer-v3"
+            / "flags"
+            / "model_metadata.json"
+        ),
+        slot_model=(
+            project_root
+            / "models"
+            / "counter_recognizer"
+            / "counter-recognizer-v3"
+            / "slots"
+            / "slot-recognizer-v1.onnx"
+        ),
+        slot_metadata=(
+            project_root
+            / "models"
+            / "counter_recognizer"
+            / "counter-recognizer-v3"
+            / "slots"
+            / "model_metadata.json"
+        ),
+    )
     recognition_service = RecognitionService(
-        project_root / "models" / "detector" / "minebot-yolo26n-detector-v1.onnx",
-        project_root
-        / "models"
-        / "detector"
-        / "minebot-yolo26n-detector-v1.json",
+        models,
         cache_path.parent,
         settings.selected_processor,
         app,
     )
+    recognition_state = RecognitionViewState(app)
+    solver_adapter = SolverAdapter(None, app)
     capture_service.frameCaptured.connect(recognition_service.submit_frame)
+    recognition_service.snapshotReady.connect(recognition_state.set_snapshot)
+    recognition_service.snapshotReady.connect(solver_adapter.submit_snapshot)
     recognition_service.processorChanged.connect(settings.set_active_processor)
+    recognition_service.set_developer_mode(
+        bool(settings.general.get("DeveloperMode", False))
+    )
     recognition_service.errorRaised.connect(
         lambda message: print(
             f"[recognition] error: {message}",
+            file=sys.stderr,
+            flush=True,
+        )
+    )
+    solver_adapter.errorRaised.connect(
+        lambda message: print(
+            f"[solver] error: {message}",
             file=sys.stderr,
             flush=True,
         )
@@ -57,7 +132,19 @@ def main() -> int:
         capture_service.set_frequency(frequency)
         console_preview.set_frequency(frequency)
 
+    def update_developer_mode() -> None:
+        recognition_service.set_developer_mode(
+            bool(settings.general.get("DeveloperMode", False))
+        )
+
     settings.captureFrequencyChanged.connect(update_capture_frequency)
     settings.detectorProcessorChanged.connect(update_detection_processor)
+    settings.generalChanged.connect(update_developer_mode)
     app.aboutToQuit.connect(recognition_service.stop)
-    return run_application(app, settings, capture_service)
+    app.aboutToQuit.connect(solver_adapter.stop)
+    return run_application(
+        app,
+        settings,
+        capture_service,
+        recognition_state,
+    )

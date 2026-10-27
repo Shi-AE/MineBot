@@ -1,8 +1,5 @@
-import ctypes
 import hashlib
-import importlib.util
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,37 +7,7 @@ import cv2
 import numpy as np
 from PySide6.QtGui import QImage
 
-
-_DLL_HANDLES: list[object] = []
-
-
-def _prepare_cuda_runtime() -> bool:
-    if os.name != "nt":
-        return True
-
-    spec = importlib.util.find_spec("onnxruntime")
-    if spec is None or not spec.submodule_search_locations:
-        return False
-
-    site_packages = Path(next(iter(spec.submodule_search_locations))).parent
-    torch_lib = site_packages / "torch" / "lib"
-    if not torch_lib.is_dir():
-        return False
-
-    os.environ["PATH"] = str(torch_lib) + os.pathsep + os.environ.get("PATH", "")
-    try:
-        _DLL_HANDLES.append(os.add_dll_directory(str(torch_lib)))
-        _DLL_HANDLES.append(ctypes.WinDLL("cublas64_13.dll"))
-        _DLL_HANDLES.append(ctypes.WinDLL("cublasLt64_13.dll"))
-        _DLL_HANDLES.append(ctypes.WinDLL("cudnn64_9.dll"))
-    except OSError:
-        return False
-    return True
-
-
-_CUDA_RUNTIME_AVAILABLE = _prepare_cuda_runtime()
-
-import onnxruntime as ort
+from .runtime import create_session
 
 
 @dataclass(frozen=True)
@@ -72,36 +39,7 @@ class Detector:
         if actual_hash != expected_hash:
             raise RuntimeError("detector model checksum does not match metadata")
 
-        available = set(ort.get_available_providers())
-        gpu_device = self._gpu_device(processor)
-        providers: list[object] = []
-        provider_options: list[dict[str, str]] | None = None
-        if (
-            gpu_device is not None
-            and _CUDA_RUNTIME_AVAILABLE
-            and "CUDAExecutionProvider" in available
-        ):
-            providers.append("CUDAExecutionProvider")
-            if gpu_device > 0:
-                provider_options = [{"device_id": str(gpu_device)}]
-        if "CPUExecutionProvider" in available:
-            providers.append("CPUExecutionProvider")
-            if provider_options is not None:
-                provider_options.append({})
-        if not providers:
-            raise RuntimeError("no compatible ONNX Runtime provider")
-
-        session_args: dict[str, object] = {"providers": providers}
-        if provider_options is not None:
-            session_args["provider_options"] = provider_options
-        self._session = ort.InferenceSession(str(model_path), **session_args)
-        active_provider = self._session.get_providers()[0]
-        self.processor = (
-            f"cuda:{gpu_device}"
-            if gpu_device is not None
-            and active_provider == "CUDAExecutionProvider"
-            else "cpu"
-        )
+        self._session, self.processor = create_session(model_path, processor)
         self._input_name = self._session.get_inputs()[0].name
         self._output_name = self._session.get_outputs()[0].name
         self._input_size = int(self._metadata["input"]["shape"][2])
@@ -124,19 +62,6 @@ class Detector:
             for class_id, name in self._metadata["classes"].items()
             if name == "remaining_counter"
         )
-
-    @staticmethod
-    def _gpu_device(processor: str) -> int | None:
-        if processor == "cpu":
-            return None
-        if processor == "auto":
-            return 0
-        if processor.startswith("cuda:"):
-            try:
-                return max(0, int(processor.split(":", 1)[1]))
-            except ValueError:
-                return None
-        return None
 
     def detect(self, image: QImage) -> DetectionResult | None:
         if image.isNull():

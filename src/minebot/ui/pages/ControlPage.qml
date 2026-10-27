@@ -166,13 +166,45 @@ Item {
                         Rectangle {
                             id: boardShell
 
-                            readonly property real boardSize: Math.max(
-                                180,
-                                Math.min(parent.width - 70, parent.height - 38)
+                            readonly property var snapshot: root.theme.recognitionSnapshot
+                            readonly property int columns: snapshot.board
+                                ? Math.max(1, snapshot.board.columns)
+                                : 12
+                            readonly property int rows: snapshot.board
+                                ? Math.max(1, snapshot.board.rows)
+                                : 12
+                            readonly property real cellSpacing: 1
+                            readonly property real horizontalPadding: 20
+                            readonly property real verticalChrome: 71
+                            readonly property real maximumWidth: Math.max(
+                                1,
+                                parent.width - 70
                             )
+                            readonly property real maximumHeight: Math.max(
+                                1,
+                                parent.height - 38
+                            )
+                            readonly property real heightAtMaximumWidth:
+                                (maximumWidth
+                                    - horizontalPadding
+                                    - Math.max(0, columns - 1) * cellSpacing)
+                                    * rows / columns
+                                + Math.max(0, rows - 1) * cellSpacing
+                                + verticalChrome
+                            readonly property bool fitsAtMaximumWidth:
+                                heightAtMaximumWidth <= maximumHeight
 
-                            width: boardSize
-                            height: boardSize
+                            width: fitsAtMaximumWidth
+                                ? maximumWidth
+                                : (maximumHeight
+                                    - verticalChrome
+                                    - Math.max(0, rows - 1) * cellSpacing)
+                                    * columns / rows
+                                    + Math.max(0, columns - 1) * cellSpacing
+                                    + horizontalPadding
+                            height: fitsAtMaximumWidth
+                                ? heightAtMaximumWidth
+                                : maximumHeight
                             anchors.centerIn: parent
                             radius: 13
                             color: root.theme.surfaceAlt
@@ -188,40 +220,9 @@ Item {
                                 border.color: root.theme.borderColor
                                 clip: true
 
-                                Grid {
-                                    id: previewGrid
+                                CellPreview {
                                     anchors.fill: parent
-                                    anchors.margins: 1
-                                    columns: 12
-                                    spacing: 1
-
-                                    readonly property real cellSize: (width - 11) / 12
-
-                                    Repeater {
-                                        model: 144
-
-                                        Rectangle {
-                                            id: boardCell
-                                            required property int index
-
-                                            width: previewGrid.cellSize
-                                            height: previewGrid.cellSize
-                                            radius: 1
-                                            color: index % 9 === 0 ? root.theme.surface : root.theme.surfaceAlt
-                                            border.width: 1
-                                            border.color: root.theme.borderColor
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                visible: boardCell.index % 9 === 0
-                                                text: ["1", "2", "2", "1"][boardCell.index % 4]
-                                                color: root.theme.textMuted
-                                                font.family: root.theme.fontFamily
-                                                font.pixelSize: Math.max(5, parent.width * 0.34)
-                                                font.weight: Font.DemiBold
-                                            }
-                                        }
-                                    }
+                                    theme: root.theme
                                 }
                             }
 
@@ -230,6 +231,7 @@ Item {
                                 width: 150
                                 height: 38
                                 radius: 9
+                                visible: false
                                 color: root.theme.surface
                                 border.width: 1
                                 border.color: root.theme.borderStrong
@@ -265,7 +267,12 @@ Item {
                             anchors.rightMargin: 16
 
                             Text {
-                                text: "预览尺寸  12 × 12"
+                                text: root.theme.recognitionSnapshot.board
+                                    ? "预览尺寸  "
+                                        + root.theme.recognitionSnapshot.board.columns
+                                        + " × "
+                                        + root.theme.recognitionSnapshot.board.rows
+                                    : "预览尺寸  --"
                                 color: root.theme.textFaint
                                 font.family: root.theme.fontFamily
                                 font.pixelSize: 9

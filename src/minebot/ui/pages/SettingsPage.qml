@@ -390,6 +390,44 @@ Item {
                             color: root.theme.borderColor
                         }
 
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 50
+                            spacing: 16
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    text: "开发者模式"
+                                    color: root.theme.textPrimary
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    text: "异步保存雷区、余雷区和格子截图，不阻塞识别。"
+                                    color: root.theme.textMuted
+                                    font.family: root.theme.fontFamily
+                                    font.pixelSize: 9
+                                }
+                            }
+
+                            AppSwitch {
+                                theme: root.theme
+                                checked: root.theme.developerMode
+                                onToggled: root.theme.setGeneral("DeveloperMode", checked)
+                                Accessible.name: "开发者模式"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: root.theme.borderColor
+                        }
+
                         ColumnLayout {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 68

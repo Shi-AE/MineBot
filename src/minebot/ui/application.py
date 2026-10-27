@@ -7,6 +7,7 @@ from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from ..capture import CaptureService, CaptureTarget
+from ..recognition import RecognitionViewState
 from .region import RegionWindowController
 
 
@@ -14,6 +15,7 @@ def run_application(
     app: QGuiApplication,
     settings: QObject,
     capture_service: CaptureService,
+    recognition_state: RecognitionViewState,
 ) -> int:
     QQuickStyle.setStyle("Basic")
 
@@ -24,7 +26,12 @@ def run_application(
 
     engine = QQmlApplicationEngine(app)
     region_window_controller = RegionWindowController(engine)
-    engine.setInitialProperties({"appSettings": settings})
+    engine.setInitialProperties(
+        {
+            "appSettings": settings,
+            "recognitionState": recognition_state,
+        }
+    )
     engine.load(qml_file.as_uri())
     if not engine.rootObjects():
         return 1
