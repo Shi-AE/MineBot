@@ -8,6 +8,8 @@ from PySide6.QtGui import QImage
 
 @dataclass(frozen=True)
 class DebugFrame:
+    """开发者模式开启时需要保存的裁图。"""
+
     minefield: QImage
     counters: tuple[QImage, ...]
     cells: tuple[QImage, ...]
@@ -16,6 +18,11 @@ class DebugFrame:
 
 
 class DebugWriter:
+    """后台写入器，只保留最新一帧调试数据。
+
+    识别线程提交后立即返回；单一待写槽位使磁盘延迟不影响识别。
+    """
+
     def __init__(
         self,
         output_dir: Path,
@@ -70,7 +77,7 @@ class DebugWriter:
             try:
                 self._write(frame)
             except Exception as error:
-                self._on_error(f"failed to save developer captures: {error}")
+                self._on_error(f"保存开发者截图失败: {error}")
 
     def _write(self, frame: DebugFrame) -> None:
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +105,8 @@ class DebugWriter:
 
     @staticmethod
     def _save_atomic(image: QImage, target: Path) -> None:
+        # 先写入隐藏临时文件，读取方不会看到损坏的 PNG。
         temporary = target.with_name(f".{target.name}.tmp")
         if not image.save(str(temporary), "PNG"):
-            raise OSError(f"failed to save {temporary}")
+            raise OSError(f"保存失败: {temporary}")
         os.replace(temporary, target)

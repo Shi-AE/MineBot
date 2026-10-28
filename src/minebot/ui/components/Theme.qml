@@ -1,5 +1,6 @@
 import QtQuick
 
+// 把设置、识别与求解状态桥接为普通 QML 属性。
 QtObject {
     id: root
 

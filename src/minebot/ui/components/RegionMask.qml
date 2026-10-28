@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Window
 
+// 两个叠加的无边框窗口：带边框的外框接收鼠标拖动/缩放；
+// 蒙版窗口渲染底色与提示层，且完全穿透鼠标。
+// 两者都按 HWND 从捕获中排除。
 Window {
     id: frameWindow
     objectName: "frameWindow"

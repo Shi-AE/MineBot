@@ -1,10 +1,10 @@
 from .adapter import SolverAdapter
-from .demo import Demo30By16Solver
+from .minebot_solver import MineBotSolver
 from .state import SolverViewState
 from .types import SolverCellHint, SolverOption, SolverResult
 
 __all__ = (
-    "Demo30By16Solver",
+    "MineBotSolver",
     "SolverAdapter",
     "SolverCellHint",
     "SolverOption",

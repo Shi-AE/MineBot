@@ -1,1 +1,1 @@
-"""MineBot UI package."""
+"""MineBot UI 包。"""

@@ -12,6 +12,8 @@ from .windows import exclude_from_capture, window_rect
 
 @dataclass(frozen=True)
 class CaptureTarget:
+    """游戏窗口与蒙版窗口，两者都必须从捕获中排除。"""
+
     frame_hwnd: int
     mask_hwnd: int
 
@@ -45,6 +47,7 @@ class _CaptureThread(QThread):
                     started_at = time.monotonic()
                     rect = window_rect(self._mask_hwnd)
                     shot = capture.grab(rect)
+                    # QImage 只引用 mss 缓冲区，跨线程传递前必须复制。
                     image = QImage(
                         shot.bgra,
                         shot.width,
@@ -54,10 +57,11 @@ class _CaptureThread(QThread):
                     ).copy()
 
                     if not image.save(str(self._cache_path), "PNG"):
-                        raise OSError(f"failed to save capture: {self._cache_path}")
+                        raise OSError(f"保存捕获图像失败: {self._cache_path}")
 
                     frame_number += 1
                     self.frameCaptured.emit(frame_number, image, rect)
+                    # stop 事件等待同时充当帧间隔休眠。
                     wait_time = self._interval - (time.monotonic() - started_at)
                     if wait_time > 0:
                         self._stop_event.wait(wait_time)
@@ -84,7 +88,7 @@ class CaptureService(QObject):
     @Slot(object)
     def start(self, target: CaptureTarget) -> None:
         if not isinstance(target, CaptureTarget):
-            self.errorRaised.emit("CaptureService.start requires CaptureTarget")
+            self.errorRaised.emit("CaptureService.start 需要 CaptureTarget 参数")
             return
 
         self.stop()
@@ -120,7 +124,7 @@ class CaptureService(QObject):
         self._capture_thread = None
         thread.stop()
         if not thread.wait(1500):
-            self.errorRaised.emit("capture worker did not stop within 1.5 seconds")
+            self.errorRaised.emit("捕获线程未能在 1.5 秒内停止")
 
     @Slot(float)
     def set_frequency(self, frequency: float) -> None:

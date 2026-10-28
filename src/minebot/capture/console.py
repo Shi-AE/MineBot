@@ -8,6 +8,8 @@ from PySide6.QtGui import QImage
 
 
 class ConsolePreview:
+    """带限速的终端帧预览。"""
+
     def __init__(self, cache_path: Path, frequency: float) -> None:
         self._frequency = frequency
         self._cache_path = cache_path
@@ -22,6 +24,7 @@ class ConsolePreview:
         image: QImage,
         rect: dict[str, int],
     ) -> None:
+        # 帧率高于 2 FPS 时跳过完整 ANSI 重绘。
         now = time.monotonic()
         if frame_number > 1 and now - self._last_preview_at < 0.5:
             return
@@ -30,7 +33,7 @@ class ConsolePreview:
         self._print_frame(frame_number, image, rect)
 
     def handle_error(self, message: str) -> None:
-        print(f"[capture] error: {message}", file=sys.stderr, flush=True)
+        print(f"[捕获] 错误: {message}", file=sys.stderr, flush=True)
 
     def _print_frame(
         self,
@@ -45,10 +48,10 @@ class ConsolePreview:
             Qt.TransformationMode.SmoothTransformation,
         ).pixelColor(0, 0)
         header = (
-            f"[frame {frame_number:05d}] "
-            f"rect=({rect['left']},{rect['top']},{rect['width']},{rect['height']}) "
-            f"mean=({mean.red()},{mean.green()},{mean.blue()}) "
-            f"fps={self._frequency:.2f} cache={self._cache_path}"
+            f"[帧 {frame_number:05d}] "
+            f"区域=({rect['left']},{rect['top']},{rect['width']},{rect['height']}) "
+            f"均值=({mean.red()},{mean.green()},{mean.blue()}) "
+            f"FPS={self._frequency:.2f} 缓存={self._cache_path}"
         )
 
         if not sys.stdout.isatty():

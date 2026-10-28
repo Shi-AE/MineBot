@@ -3,6 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 
+// 渲染最新识别快照的棋盘；行列数来自快照，
+// 正确支持非正方形棋盘布局。
 Item {
     id: root
 
@@ -175,7 +177,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: root.boardCells.length === 0
-                text: "Waiting for recognition"
+                text: "等待识别结果"
                 color: root.theme.textMuted
                 font.family: root.theme.fontFamily
                 font.pixelSize: 10

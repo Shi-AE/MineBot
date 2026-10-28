@@ -10,6 +10,8 @@ from .types import Classification
 
 
 class Classifier:
+    """动态 batch 的 ONNX 分类器，按 confidence/margin 双阈值决定是否输出 UNKNOWN。"""
+
     def __init__(
         self,
         model_path: Path,
@@ -38,6 +40,7 @@ class Classifier:
             [self._prepare_image(image) for image in images],
             axis=0,
         )
+        # 每帧只做一次 Session.run；模型的 batch 维是动态的。
         logits = self._session.run(
             [self._output_name],
             {self._input_name: batch},
@@ -45,7 +48,7 @@ class Classifier:
         probabilities = _softmax(np.asarray(logits, dtype=np.float32))
         if probabilities.ndim != 2 or probabilities.shape[1] != len(self._classes):
             raise RuntimeError(
-                f"unexpected classifier output shape: {probabilities.shape}"
+                f"分类器输出形状异常: {probabilities.shape}"
             )
 
         best_indexes = probabilities.argmax(axis=1)
@@ -53,6 +56,7 @@ class Classifier:
             np.arange(probabilities.shape[0]),
             best_indexes,
         ]
+        # 屏蔽最高项，取次高项计算 margin。
         second_probabilities = probabilities.copy()
         second_probabilities[
             np.arange(second_probabilities.shape[0]),
@@ -67,6 +71,7 @@ class Classifier:
                 probabilities[row, second_indexes[row]]
             )
             best_kind = self._classes[int(best_index)]
+            # 两个阈值必须同时满足；阈值 0 表示始终接受。
             accepted = (
                 confidence >= self._confidence_threshold
                 and margin >= self._margin_threshold
@@ -83,7 +88,7 @@ class Classifier:
 
     def _prepare_image(self, image: QImage) -> np.ndarray:
         if image.isNull():
-            raise ValueError("cannot classify an empty image")
+            raise ValueError("无法识别空图像")
 
         rgb_image = image.convertToFormat(QImage.Format.Format_RGB888)
         width = rgb_image.width()

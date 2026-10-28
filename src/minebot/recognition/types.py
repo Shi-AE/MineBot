@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Classification:
+    """应用 UNKNOWN 拒绝规则后的 top-1 分类结果。"""
+
     kind: str
     best_kind: str
     confidence: float
@@ -32,6 +34,8 @@ class CounterRecognition:
 
 @dataclass(frozen=True)
 class RecognitionSnapshot:
+    """单帧一次识别的不可变结果。"""
+
     frame_number: int
     board_key: str
     captured_at: float
@@ -49,6 +53,7 @@ class RecognitionSnapshot:
 
 
 def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
+    """把快照展开为 QML 可用的 QVariant 字典。"""
     return {
         "frame_number": snapshot.frame_number,
         "board_key": snapshot.board_key,
@@ -118,6 +123,8 @@ def make_board_key(
     cells: tuple[CellRecognition, ...],
     counters: tuple[CounterRecognition, ...],
 ) -> str:
+    """只对玩法事实做哈希；几何变化不改变键值，
+    移动框选区域不会触发重新求解。"""
     payload = {
         "rows": rows,
         "columns": columns,

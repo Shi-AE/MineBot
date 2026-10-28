@@ -4,6 +4,11 @@ from .types import SolverResult, validate_result
 
 
 class SolverViewState(QObject):
+    """求解结果与 QML 之间的主线程桥接。
+
+    持有最新棋盘标识，异步返回的过期结果在到达 UI 前被丢弃。
+    """
+
     resultChanged = Signal()
     selectedChanged = Signal()
 
@@ -29,6 +34,7 @@ class SolverViewState(QObject):
             return
         board_key = str(snapshot.get("board_key", ""))
         board = snapshot.get("board")
+        # 在主线程跟踪最新棋盘标识；求解结果异步到达时与它比较。
         if isinstance(board, dict):
             self._rows = int(board.get("rows", 0))
             self._columns = int(board.get("columns", 0))
@@ -75,6 +81,7 @@ class SolverViewState(QObject):
             return
 
         result = validated.to_qml()
+        # 重复的相同结果不重复发出变更信号。
         if result == self._result:
             return
         self._result = result

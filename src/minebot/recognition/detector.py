@@ -12,6 +12,8 @@ from .runtime import create_session
 
 @dataclass(frozen=True)
 class Box:
+    """源帧像素坐标系下的检测框。"""
+
     class_id: int
     confidence: float
     x1: float
@@ -27,6 +29,8 @@ class DetectionResult:
 
 
 class Detector:
+    """YOLO 封装：要求恰好一个雷区和四个余雷区。"""
+
     def __init__(
         self,
         model_path: Path,
@@ -37,7 +41,7 @@ class Detector:
         expected_hash = self._metadata["model"]["sha256"]
         actual_hash = hashlib.sha256(model_path.read_bytes()).hexdigest()
         if actual_hash != expected_hash:
-            raise RuntimeError("detector model checksum does not match metadata")
+            raise RuntimeError("检测模型校验值与元数据不一致")
 
         self._session, self.processor = create_session(model_path, processor)
         self._input_name = self._session.get_inputs()[0].name
@@ -65,7 +69,7 @@ class Detector:
 
     def detect(self, image: QImage) -> DetectionResult | None:
         if image.isNull():
-            raise ValueError("cannot detect an empty image")
+            raise ValueError("无法识别空图像")
 
         tensor, ratio, pad_left, pad_top = self._prepare(image)
         output = self._session.run(
@@ -86,10 +90,12 @@ class Detector:
         if len(minefields) != 1 or len(counters) != 4:
             return None
 
+        # 固定 UI 顺序：余雷区按从上到下、从左到右编号。
         counters.sort(key=lambda box: (box.y1, box.x1))
         return DetectionResult(minefields[0], tuple(counters))
 
     def _prepare(self, image: QImage) -> tuple[np.ndarray, float, int, int]:
+        # Letterbox 到固定网络输入；比例与 padding 用于在 _decode 中还原到源像素。
         rgb_image = image.convertToFormat(QImage.Format.Format_RGB888)
         width = rgb_image.width()
         height = rgb_image.height()
@@ -137,7 +143,7 @@ class Detector:
     ) -> list[Box]:
         predictions = np.asarray(output, dtype=np.float32)
         if predictions.ndim != 3 or predictions.shape[0] != 1:
-            raise RuntimeError(f"unexpected detector output shape: {predictions.shape}")
+            raise RuntimeError(f"检测器输出形状异常: {predictions.shape}")
 
         predictions = predictions[0].T
         class_scores = predictions[:, 4:]
@@ -147,6 +153,7 @@ class Detector:
         if not np.any(keep):
             return []
 
+        # 输出为 cx/cy/w/h，先转换为角点坐标再做 NMS。
         centers = predictions[keep, :4]
         confidences = confidences[keep]
         class_ids = class_ids[keep]
@@ -161,6 +168,7 @@ class Detector:
         confidences = confidences[selected]
         class_ids = class_ids[selected]
 
+        # 还原 letterbox 变换并裁剪到可见画面内。
         boxes[:, [0, 2]] = (boxes[:, [0, 2]] - pad_left) / ratio
         boxes[:, [1, 3]] = (boxes[:, [1, 3]] - pad_top) / ratio
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, image_width)
@@ -188,6 +196,7 @@ class Detector:
         scores: np.ndarray,
         class_ids: np.ndarray,
     ) -> list[int]:
+        # 按类别独立做贪心 NMS，避免雷区与余雷区互相抑制。
         areas = (
             (boxes[:, 2] - boxes[:, 0]).clip(0)
             * (boxes[:, 3] - boxes[:, 1]).clip(0)

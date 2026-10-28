@@ -11,7 +11,7 @@ from .recognition import (
     RecognitionViewState,
 )
 from .settings import AppSettings
-from .solver import Demo30By16Solver, SolverAdapter, SolverViewState
+from .solver import SolverAdapter, SolverViewState
 from .ui.application import run_application
 
 
@@ -23,6 +23,7 @@ def main() -> int:
 
     settings = AppSettings()
     cache_path = Path(settings.capture_cache_path)
+    # 在这里串联唯一的数据管线：捕获 → 识别；识别快照同时分发给 QML 与求解器。
     capture_service = CaptureService(
         cache_path,
         settings.capture_frequency,
@@ -101,7 +102,10 @@ def main() -> int:
     )
     recognition_state = RecognitionViewState(app)
     solver_state = SolverViewState(app)
-    solver_adapter = SolverAdapter(Demo30By16Solver(), app)
+    # 【求解器接入点】实现 SolverHandler 后在这里传入：
+    # handler(识别快照 dict) -> SolverResult | None，返回 None 表示本帧放弃。
+    # 正式求解器骨架见 src/minebot/solver/minebot_solver.py。
+    solver_adapter = SolverAdapter(None, app)
     capture_service.frameCaptured.connect(recognition_service.submit_frame)
     recognition_service.snapshotReady.connect(recognition_state.set_snapshot)
     recognition_service.snapshotReady.connect(
@@ -115,14 +119,14 @@ def main() -> int:
     )
     recognition_service.errorRaised.connect(
         lambda message: print(
-            f"[recognition] error: {message}",
+            f"[识别] 错误: {message}",
             file=sys.stderr,
             flush=True,
         )
     )
     solver_adapter.errorRaised.connect(
         lambda message: print(
-            f"[solver] error: {message}",
+            f"[求解] 错误: {message}",
             file=sys.stderr,
             flush=True,
         )

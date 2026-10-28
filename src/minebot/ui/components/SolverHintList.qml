@@ -3,6 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 
+// 按格子分组显示求解提示的全部候选；点击分组会选中该格子，
+// 蒙版提示层随之高亮。
 Panel {
     id: root
 
@@ -32,10 +34,6 @@ Panel {
         }
     }
 
-    function statusColor(source) {
-        return source === "demo" ? root.theme.warning : root.theme.textFaint;
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -60,10 +58,10 @@ Panel {
                 }
 
                 Text {
-                    text: root.result.source === "demo"
-                        ? "演示结果"
-                        : root.statusLabel(root.result.status)
-                    color: root.statusColor(root.result.source)
+                    text: root.result.status
+                        ? root.statusLabel(root.result.status)
+                        : "等待中"
+                    color: root.theme.textFaint
                     font.family: root.theme.fontFamily
                     font.pixelSize: 9
                 }

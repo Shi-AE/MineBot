@@ -3,6 +3,7 @@ import platform
 
 
 def detect_processor_options() -> list[dict[str, object]]:
+    """列出设置页可用的 CPU 与 NVIDIA GPU；枚举失败时仅隐藏 GPU 项。"""
     options: list[dict[str, object]] = [
         {
             "value": "auto",
@@ -21,6 +22,7 @@ def detect_processor_options() -> list[dict[str, object]]:
     try:
         import pynvml
 
+        # NVML 失败只是隐藏 GPU 选项，CPU 仍可选。
         pynvml.nvmlInit()
         try:
             for index in range(pynvml.nvmlDeviceGetCount()):

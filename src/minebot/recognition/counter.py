@@ -6,11 +6,17 @@ from PySide6.QtGui import QImage
 
 @dataclass(frozen=True)
 class CounterParts:
+    """旗帜图像与四个固定 LED 槽位裁图。"""
+
     flag: QImage
     slots: tuple[QImage, ...]
 
 
 def split_counter(image: QImage) -> CounterParts:
+    """把余雷区裁图切分为旗帜区域和四个 LED 槽位。
+
+    LED 面板由暗色背景与红色 LED 字形共同确定；仅凭暗色会误匹配旗帜区域。
+    """
     rgb = _qimage_to_rgb(image)
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
@@ -20,6 +26,7 @@ def split_counter(image: QImage) -> CounterParts:
     panel = dark | red_led
 
     column_coverage = panel.mean(axis=0)
+    # LED 面板至少占裁图宽度的四分之一，而旗帜图标达不到该宽度。
     minimum_width = max(12, image.width() // 4)
     runs: list[tuple[int, int]] = []
     start: int | None = None
@@ -38,15 +45,15 @@ def split_counter(image: QImage) -> CounterParts:
                 runs.append((start, end))
             start = None
     if not runs:
-        raise ValueError("unable to detect LED display panel")
+        raise ValueError("无法检测 LED 显示面板")
 
     left, right = max(runs, key=lambda run: (run[1] - run[0], run[1]))
     rows = np.flatnonzero(panel[:, left : right + 1].mean(axis=1) >= 0.55)
     if rows.size == 0:
-        raise ValueError("unable to detect LED display rows")
+        raise ValueError("无法检测 LED 显示行范围")
     top, bottom = int(rows.min()), int(rows.max())
     if left < image.width() // 5:
-        raise ValueError("display panel is implausibly narrow")
+        raise ValueError("LED 面板宽度异常")
 
     boundaries = [
         left + round(index * (right - left + 1) / 4)

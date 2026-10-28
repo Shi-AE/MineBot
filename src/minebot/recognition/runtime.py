@@ -8,6 +8,8 @@ _DLL_HANDLES: list[object] = []
 
 
 def _prepare_cuda_runtime() -> bool:
+    # onnxruntime-gpu 依赖 torch 轮子内附带的 CUDA DLL，
+    # 必须在下方 `import onnxruntime` 之前设为可解析。
     if os.name != "nt":
         return True
 
@@ -38,11 +40,15 @@ import onnxruntime as ort
 
 _CPU_INTRA_OP_THREADS = min(12, os.cpu_count() or 1)
 
+# 参数来自本机基准测试：GPU 受限于内核启动开销；CPU 关闭自旋，
+# 避免与捕获/UI 工作抢占线程。
+
 
 def create_session(
     model_path: Path,
     processor: str,
 ) -> tuple[ort.InferenceSession, str]:
+    """按请求创建 Session，并返回实际使用的 Provider 标签。"""
     available = set(ort.get_available_providers())
     gpu_device = _gpu_device(processor)
     if (
@@ -69,11 +75,12 @@ def create_session(
             )
             if session.get_providers()[0] == "CUDAExecutionProvider":
                 return session, f"cuda:{gpu_device}"
+    # GPU Session 创建失败时回退 CPU；调用方通过返回的标签得知实际 Provider。
         except Exception:
             pass
 
     if "CPUExecutionProvider" not in available:
-        raise RuntimeError("no compatible ONNX Runtime provider")
+        raise RuntimeError("没有可用的 ONNX Runtime Provider")
     session = ort.InferenceSession(
         str(model_path),
         sess_options=_cpu_session_options(),

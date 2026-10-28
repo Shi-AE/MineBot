@@ -4,6 +4,8 @@ from PySide6.QtQml import QQmlComponent
 
 
 class RegionWindowController(QObject):
+    """持有框选外框/蒙版窗口，并发布它们的 HWND。"""
+
     regionShown = Signal(int, int)
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -20,6 +22,7 @@ class RegionWindowController(QObject):
         width = window.width()
         height = window.height()
         edge = max(1, min(edge_size, width // 2, height // 2))
+        # 蒙版只保留边框可见：外框可点击拖动，中心透明露出游戏画面。
         if edge <= 0:
             return
 
@@ -61,6 +64,7 @@ class RegionWindowController(QObject):
             window.objectName(): window
             for window in QGuiApplication.topLevelWindows()
         }
+        # 窗口显示后 winId() 才稳定；短暂延迟等待 QML 完成创建，再启动捕获。
         try:
             frame_window = windows["frameWindow"]
             mask_window = windows["maskWindow"]

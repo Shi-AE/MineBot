@@ -8,6 +8,8 @@ from PySide6.QtGui import QImage
 
 @dataclass(frozen=True)
 class Grid:
+    """雷区裁图像素坐标系下的网格线位置。"""
+
     x_lines: tuple[int, ...]
     y_lines: tuple[int, ...]
 
@@ -21,7 +23,7 @@ class Grid:
 
     def cell_rect(self, row: int, column: int) -> QRect:
         if not 0 <= row < self.rows or not 0 <= column < self.columns:
-            raise IndexError(f"cell out of range: row={row}, column={column}")
+            raise IndexError(f"格子越界: 行={row}, 列={column}")
         x1 = self.x_lines[column]
         x2 = self.x_lines[column + 1]
         y1 = self.y_lines[row]
@@ -30,6 +32,7 @@ class Grid:
 
 
 def detect_grid(image: QImage) -> Grid | None:
+    """基于 Sobel 边缘投影检测行列分隔线。"""
     if image.isNull() or image.width() < 16 or image.height() < 16:
         return None
 
@@ -64,6 +67,7 @@ def _detect_lines(profile: np.ndarray) -> tuple[int, ...] | None:
         offsets,
         key=lambda candidate: float(smoothed[candidate::pitch].mean()),
     )
+    # 把每条预期线吸附到容差内最强的边缘，避免格距漂移在整行累积。
     tolerance = max(2, pitch // 5)
     lines: list[int] = []
     for expected in range(offset, smoothed.size, pitch):
@@ -75,6 +79,7 @@ def _detect_lines(profile: np.ndarray) -> tuple[int, ...] | None:
         return None
 
     differences = np.diff(lines)
+    # 拒绝间距不合理或不稳定的投影。
     if np.median(differences) < 12:
         return None
     if np.mean(np.abs(differences - pitch) <= 2) < 0.8:

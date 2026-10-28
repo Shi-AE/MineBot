@@ -28,6 +28,8 @@ def run_application(
 
     engine = QQmlApplicationEngine(app)
     region_window_controller = RegionWindowController(engine)
+    # 状态对象以 context property 暴露；QML 负责渲染，
+    # 只读取这里发布的不可变快照。
     engine.setInitialProperties(
         {
             "appSettings": settings,

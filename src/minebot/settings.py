@@ -40,7 +40,7 @@ _GENERAL_ENTRIES = (
     ("WindowAlwaysOnTop", True, "运行时将控制台窗口保持在其他窗口上方。"),
     ("PreserveDashboard", True, "结束任务后保留数据看板中的本次任务内容。"),
     ("RegionMaskVisible", True, "显示扫雷区域蒙版。"),
-    ("DeveloperMode", False, "Asynchronously save recognition crops for development."),
+    ("DeveloperMode", False, "开发模式下异步保存识别裁图。"),
 )
 
 _DEFAULT_MASK_OPACITY = 0.5
@@ -51,6 +51,8 @@ _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 class AppSettings(QObject):
+    """持久化到 settings.ini 的用户设置，并暴露给 QML。"""
+
     colorsChanged = Signal()
     generalChanged = Signal()
     maskOpacityChanged = Signal()
@@ -273,7 +275,7 @@ class AppSettings(QObject):
                 f"RegionMaskOpacity={self._mask_opacity:.2f}",
                 "# 捕获频率，单位 FPS，范围 0.1 到 10.0。",
                 f"CaptureFrequency={self._capture_frequency:.2f}",
-                "# Detector processor: auto, cpu, or cuda:<GPU index>.",
+                "# 识别处理器: auto、cpu 或 cuda:<GPU 序号>。",
                 f"DetectionProcessor={self._selected_processor}",
             )
         )

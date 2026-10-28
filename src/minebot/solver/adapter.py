@@ -9,7 +9,14 @@ from .types import SolverResult
 SolverHandler = Callable[[dict[str, object]], SolverResult | None]
 
 
+# 求解链路：
+# 识别线程 snapshotReady → SolverAdapter.submit_snapshot（主线程）
+#   → 工作线程 handler(snapshot) → resultReady → SolverViewState → QML
+# 真实求解器只需实现 SolverHandler 并在 app.py 接入点传入；
+# 返回 None 表示本帧不产出建议，异常会被捕获并通过 errorRaised 上报。
 class SolverAdapter(QObject):
+    """把识别快照转发给用户求解器，handler 在独立工作线程执行。"""
+
     resultReady = Signal(object)
     errorRaised = Signal(str)
 
@@ -37,6 +44,12 @@ class SolverAdapter(QObject):
 
 
 class _SolverWorker:
+    """单线程执行器，带“最新优先”的待处理槽位。
+
+    相同 board_key 在入队前被拒绝，因此识别全速运行时，
+    棋盘不变不会重复求解。
+    """
+
     def __init__(
         self,
         handler: SolverHandler | None,
@@ -64,6 +77,7 @@ class _SolverWorker:
                 return
             if board_key and board_key == self._last_board_key:
                 return
+            # 最新优先：排队中的旧棋盘会被覆盖，而不是累积。
             self._last_board_key = board_key
             self._pending = snapshot
             self._condition.notify()
@@ -92,6 +106,7 @@ class _SolverWorker:
                 if result is not None:
                     self._result_signal.emit(result)
             except Exception as error:
+                # handler 失败后允许同一棋盘重试。
                 with self._condition:
                     self._last_board_key = ""
-                self._error_signal.emit(f"solver submit failed: {error}")
+                self._error_signal.emit(f"求解器提交失败: {error}")

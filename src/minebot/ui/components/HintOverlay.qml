@@ -2,6 +2,9 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
+// 使用识别快照的归一化网格边界，把求解提示叠加到蒙版窗口。
+// 每格只显示一个提示：待执行时四角括线呼吸；详情面板选中显示
+// 静态边框加一次扩散脉冲，两种动画保持可区分。
 Item {
     id: root
 
