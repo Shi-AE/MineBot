@@ -5,6 +5,7 @@ QtObject {
 
     required property var settings
     required property var recognitionState
+    required property var solverState
 
     readonly property var colors: root.settings.colors
     readonly property var generalValues: root.settings.general
@@ -22,6 +23,8 @@ QtObject {
     readonly property string activeProcessorLabel: root.settings.active_processor_label
     readonly property bool developerMode: root.generalValues["DeveloperMode"] || false
     readonly property var recognitionSnapshot: root.recognitionState.snapshot
+    readonly property var solverResult: root.solverState.result
+    readonly property var selectedHint: root.solverState.selected_hint
 
     readonly property color accent: root.colors["Accent"]
     readonly property color accentText: root.colors["AccentText"]

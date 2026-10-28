@@ -16,6 +16,7 @@ from .types import (
     Classification,
     CounterRecognition,
     RecognitionSnapshot,
+    make_board_key,
     snapshot_to_qml,
 )
 from .writer import DebugFrame, DebugWriter
@@ -181,9 +182,12 @@ class _RecognitionThread(QThread):
             image.height(),
             fraction=0.01,
         )
-        minefield = image.copy(
-            _box_to_rect(minefield_box, image.width(), image.height())
+        minefield_rect = _box_to_rect(
+            minefield_box,
+            image.width(),
+            image.height(),
         )
+        minefield = image.copy(minefield_rect)
         counter_images = tuple(
             image.copy(_box_to_rect(box, image.width(), image.height()))
             for box in detection.remaining_counters
@@ -232,14 +236,32 @@ class _RecognitionThread(QThread):
         )
         counters_ms = _elapsed_ms(counters_started_at)
         total_ms = _elapsed_ms(started_at)
+        board_key = make_board_key(grid.rows, grid.columns, cells, counters)
+        column_edges = tuple(
+            min(
+                1.0,
+                max(0.0, (minefield_rect.x() + edge) / image.width()),
+            )
+            for edge in grid.x_lines
+        )
+        row_edges = tuple(
+            min(
+                1.0,
+                max(0.0, (minefield_rect.y() + edge) / image.height()),
+            )
+            for edge in grid.y_lines
+        )
 
         return RecognitionSnapshot(
             frame_number=frame_number,
+            board_key=board_key,
             captured_at=time.time(),
             capture_rect=dict(rect),
             provider=detector.processor,
             rows=grid.rows,
             columns=grid.columns,
+            column_edges=column_edges,
+            row_edges=row_edges,
             cells=cells,
             counters=counters,
             timings_ms={

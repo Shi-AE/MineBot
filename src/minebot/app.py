@@ -11,7 +11,7 @@ from .recognition import (
     RecognitionViewState,
 )
 from .settings import AppSettings
-from .solver import SolverAdapter
+from .solver import Demo30By16Solver, SolverAdapter, SolverViewState
 from .ui.application import run_application
 
 
@@ -100,10 +100,15 @@ def main() -> int:
         app,
     )
     recognition_state = RecognitionViewState(app)
-    solver_adapter = SolverAdapter(None, app)
+    solver_state = SolverViewState(app)
+    solver_adapter = SolverAdapter(Demo30By16Solver(), app)
     capture_service.frameCaptured.connect(recognition_service.submit_frame)
     recognition_service.snapshotReady.connect(recognition_state.set_snapshot)
+    recognition_service.snapshotReady.connect(
+        solver_state.set_recognition_snapshot
+    )
     recognition_service.snapshotReady.connect(solver_adapter.submit_snapshot)
+    solver_adapter.resultReady.connect(solver_state.set_result)
     recognition_service.processorChanged.connect(settings.set_active_processor)
     recognition_service.set_developer_mode(
         bool(settings.general.get("DeveloperMode", False))
@@ -147,4 +152,5 @@ def main() -> int:
         settings,
         capture_service,
         recognition_state,
+        solver_state,
     )

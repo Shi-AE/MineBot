@@ -3,11 +3,14 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from .types import SolverResult
 
-SolverHandler = Callable[[dict[str, object]], None]
+
+SolverHandler = Callable[[dict[str, object]], SolverResult | None]
 
 
 class SolverAdapter(QObject):
+    resultReady = Signal(object)
     errorRaised = Signal(str)
 
     def __init__(
@@ -16,7 +19,11 @@ class SolverAdapter(QObject):
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._worker = _SolverWorker(handler, self.errorRaised)
+        self._worker = _SolverWorker(
+            handler,
+            self.resultReady,
+            self.errorRaised,
+        )
 
     @Slot(object)
     def submit_snapshot(self, snapshot: object) -> None:
@@ -33,12 +40,15 @@ class _SolverWorker:
     def __init__(
         self,
         handler: SolverHandler | None,
+        result_signal: Signal,
         error_signal: Signal,
     ) -> None:
         self._handler = handler
+        self._result_signal = result_signal
         self._error_signal = error_signal
         self._condition = threading.Condition()
         self._pending: dict[str, object] | None = None
+        self._last_board_key = ""
         self._stopping = False
         self._thread = threading.Thread(
             target=self._run,
@@ -48,9 +58,13 @@ class _SolverWorker:
         self._thread.start()
 
     def submit(self, snapshot: dict[str, object]) -> None:
+        board_key = str(snapshot.get("board_key", ""))
         with self._condition:
             if self._stopping:
                 return
+            if board_key and board_key == self._last_board_key:
+                return
+            self._last_board_key = board_key
             self._pending = snapshot
             self._condition.notify()
 
@@ -74,6 +88,10 @@ class _SolverWorker:
             if self._handler is None:
                 continue
             try:
-                self._handler(snapshot)
+                result = self._handler(snapshot)
+                if result is not None:
+                    self._result_signal.emit(result)
             except Exception as error:
+                with self._condition:
+                    self._last_board_key = ""
                 self._error_signal.emit(f"solver submit failed: {error}")

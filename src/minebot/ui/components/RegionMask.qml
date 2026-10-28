@@ -7,6 +7,8 @@ Window {
 
     required property var controller
     required property var settings
+    required property var recognitionState
+    required property var solverState
     readonly property color accentColor: frameWindow.settings.colors["Accent"]
 
     property int edgeSize: 12
@@ -76,6 +78,13 @@ Window {
         return Qt.SizeAllCursor;
     }
 
+    Theme {
+        id: overlayTheme
+        settings: frameWindow.settings
+        recognitionState: frameWindow.recognitionState
+        solverState: frameWindow.solverState
+    }
+
     Component.onCompleted: {
         if (screen) {
             x = Math.round((screen.width - width) / 2);
@@ -142,12 +151,20 @@ Window {
         Item {
             anchors.fill: parent
             visible: frameWindow.settings.general["RegionMaskVisible"]
-            opacity: frameWindow.settings.region_mask_opacity
 
             Rectangle {
                 anchors.fill: parent
                 radius: frameWindow.cornerRadius
                 color: frameWindow.accentColor
+                opacity: frameWindow.settings.region_mask_opacity
+            }
+
+            HintOverlay {
+                anchors.fill: parent
+                theme: overlayTheme
+                geometry: overlayTheme.recognitionSnapshot.board || ({})
+                hints: overlayTheme.solverResult.hints || []
+                selectedHint: overlayTheme.selectedHint
             }
         }
     }

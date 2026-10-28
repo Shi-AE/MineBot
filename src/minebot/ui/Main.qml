@@ -9,6 +9,7 @@ ApplicationWindow {
 
     required property var appSettings
     required property var recognitionState
+    required property var solverState
 
     property int currentPage: 0
 
@@ -32,6 +33,7 @@ ApplicationWindow {
         id: appTheme
         settings: root.appSettings
         recognitionState: root.recognitionState
+        solverState: root.solverState
     }
 
     Rectangle {

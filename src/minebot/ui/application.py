@@ -8,6 +8,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 
 from ..capture import CaptureService, CaptureTarget
 from ..recognition import RecognitionViewState
+from ..solver import SolverViewState
 from .region import RegionWindowController
 
 
@@ -16,6 +17,7 @@ def run_application(
     settings: QObject,
     capture_service: CaptureService,
     recognition_state: RecognitionViewState,
+    solver_state: SolverViewState,
 ) -> int:
     QQuickStyle.setStyle("Basic")
 
@@ -30,6 +32,7 @@ def run_application(
         {
             "appSettings": settings,
             "recognitionState": recognition_state,
+            "solverState": solver_state,
         }
     )
     engine.load(qml_file.as_uri())
@@ -47,6 +50,8 @@ def run_application(
         {
             "controller": region_window_controller,
             "settings": settings,
+            "recognitionState": recognition_state,
+            "solverState": solver_state,
         }
     )
     if region_mask is None:

@@ -390,94 +390,10 @@ Item {
                     }
                 }
 
-                Panel {
+                SolverHintList {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     theme: root.theme
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 0
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 47
-                            color: "transparent"
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 14
-                                anchors.rightMargin: 14
-
-                                Text {
-                                    text: "操作记录"
-                                    color: root.theme.textPrimary
-                                    font.family: root.theme.fontFamily
-                                    font.pixelSize: 11
-                                    font.weight: Font.DemiBold
-                                    Layout.fillWidth: true
-                                }
-
-                                Text {
-                                    text: "最近 4 条"
-                                    color: root.theme.textFaint
-                                    font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
-                                }
-                            }
-
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 1
-                                color: root.theme.borderColor
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.leftMargin: 14
-                            Layout.rightMargin: 14
-                            Layout.topMargin: 7
-                            spacing: 0
-
-                            Repeater {
-                                model: [
-                                    ["00:00", "界面框架已加载。"],
-                                    ["00:00", "棋盘预览区域已预留。"],
-                                    ["00:00", "实时数据看板已预留。"],
-                                    ["00:00", "主题配色设置已就绪。"]
-                                ]
-
-                                RowLayout {
-                                    id: logRow
-                                    required property var modelData
-
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 31
-                                    spacing: 9
-
-                                    Text {
-                                        text: logRow.modelData[0]
-                                        color: root.theme.textFaint
-                                        font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
-                                    }
-
-                                    Text {
-                                        text: logRow.modelData[1]
-                                        color: root.theme.textMuted
-                                        font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

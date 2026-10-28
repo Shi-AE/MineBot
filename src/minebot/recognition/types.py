@@ -1,3 +1,5 @@
+import hashlib
+import json
 from dataclasses import dataclass
 
 
@@ -31,11 +33,14 @@ class CounterRecognition:
 @dataclass(frozen=True)
 class RecognitionSnapshot:
     frame_number: int
+    board_key: str
     captured_at: float
     capture_rect: dict[str, int]
     provider: str
     rows: int
     columns: int
+    column_edges: tuple[float, ...]
+    row_edges: tuple[float, ...]
     cells: tuple[CellRecognition, ...]
     counters: tuple[CounterRecognition, ...]
     timings_ms: dict[str, float]
@@ -46,12 +51,15 @@ class RecognitionSnapshot:
 def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
     return {
         "frame_number": snapshot.frame_number,
+        "board_key": snapshot.board_key,
         "captured_at": snapshot.captured_at,
         "capture_rect": dict(snapshot.capture_rect),
         "provider": snapshot.provider,
         "board": {
             "rows": snapshot.rows,
             "columns": snapshot.columns,
+            "column_edges": list(snapshot.column_edges),
+            "row_edges": list(snapshot.row_edges),
             "cells": [
                 {
                     "row": cell.row,
@@ -102,6 +110,36 @@ def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
         },
         "threshold_version": snapshot.threshold_version,
     }
+
+
+def make_board_key(
+    rows: int,
+    columns: int,
+    cells: tuple[CellRecognition, ...],
+    counters: tuple[CounterRecognition, ...],
+) -> str:
+    payload = {
+        "rows": rows,
+        "columns": columns,
+        "cells": [
+            [cell.row, cell.column, cell.classification.kind]
+            for cell in cells
+        ],
+        "counters": [
+            [
+                counter.position,
+                counter.flag.kind if counter.flag is not None else "UNKNOWN",
+                [slot.kind for slot in counter.slots],
+            ]
+            for counter in counters
+        ],
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:24]
 
 
 def _slot_text(kind: str) -> str:
