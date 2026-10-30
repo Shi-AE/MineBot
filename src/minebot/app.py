@@ -11,7 +11,7 @@ from .recognition import (
     RecognitionViewState,
 )
 from .settings import AppSettings
-from .solver import SolverAdapter, SolverViewState
+from .solver import SolverAdapter, SolverViewState, MineBotSolver
 from .ui.application import run_application
 
 
@@ -105,7 +105,7 @@ def main() -> int:
     # 【求解器接入点】实现 SolverHandler 后在这里传入：
     # handler(识别快照 dict) -> SolverResult | None，返回 None 表示本帧放弃。
     # 正式求解器骨架见 src/minebot/solver/minebot_solver.py。
-    solver_adapter = SolverAdapter(None, app)
+    solver_adapter = SolverAdapter(MineBotSolver(), app)
     capture_service.frameCaptured.connect(recognition_service.submit_frame)
     recognition_service.snapshotReady.connect(recognition_state.set_snapshot)
     recognition_service.snapshotReady.connect(

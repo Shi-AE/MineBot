@@ -9,11 +9,7 @@ from .types import SolverResult
 SolverHandler = Callable[[dict[str, object]], SolverResult | None]
 
 
-# 求解链路：
-# 识别线程 snapshotReady → SolverAdapter.submit_snapshot（主线程）
-#   → 工作线程 handler(snapshot) → resultReady → SolverViewState → QML
-# 真实求解器只需实现 SolverHandler 并在 app.py 接入点传入；
-# 返回 None 表示本帧不产出建议，异常会被捕获并通过 errorRaised 上报。
+
 class SolverAdapter(QObject):
     """把识别快照转发给用户求解器，handler 在独立工作线程执行。"""
 

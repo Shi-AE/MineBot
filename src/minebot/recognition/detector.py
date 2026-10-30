@@ -7,6 +7,13 @@ import cv2
 import numpy as np
 from PySide6.QtGui import QImage
 
+from ..constants import (
+    DETECTOR_MINEFIELD,
+    DETECTOR_REMAINING_COUNTER,
+    PROCESSOR_AUTO,
+    REQUIRED_COUNTER_COUNT,
+    REQUIRED_MINEFIELD_COUNT,
+)
 from .runtime import create_session
 
 
@@ -35,7 +42,7 @@ class Detector:
         self,
         model_path: Path,
         metadata_path: Path,
-        processor: str = "auto",
+        processor: str = PROCESSOR_AUTO,
     ) -> None:
         self._metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         expected_hash = self._metadata["model"]["sha256"]
@@ -59,12 +66,12 @@ class Detector:
         self._minefield_id = next(
             int(class_id)
             for class_id, name in self._metadata["classes"].items()
-            if name == "minefield"
+            if name == DETECTOR_MINEFIELD
         )
         self._counter_id = next(
             int(class_id)
             for class_id, name in self._metadata["classes"].items()
-            if name == "remaining_counter"
+            if name == DETECTOR_REMAINING_COUNTER
         )
 
     def detect(self, image: QImage) -> DetectionResult | None:
@@ -87,7 +94,10 @@ class Detector:
 
         minefields = [box for box in boxes if box.class_id == self._minefield_id]
         counters = [box for box in boxes if box.class_id == self._counter_id]
-        if len(minefields) != 1 or len(counters) != 4:
+        if (
+            len(minefields) != REQUIRED_MINEFIELD_COUNT
+            or len(counters) != REQUIRED_COUNTER_COUNT
+        ):
             return None
 
         # 固定 UI 顺序：余雷区按从上到下、从左到右编号。

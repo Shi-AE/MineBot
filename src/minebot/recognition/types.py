@@ -2,6 +2,12 @@ import hashlib
 import json
 from dataclasses import dataclass
 
+from ..constants import (
+    SLOT_BLANK,
+    SLOT_IMAGINARY,
+    SLOT_MINUS,
+    UNKNOWN,
+)
 
 @dataclass(frozen=True)
 class Classification:
@@ -48,8 +54,6 @@ class RecognitionSnapshot:
     cells: tuple[CellRecognition, ...]
     counters: tuple[CounterRecognition, ...]
     timings_ms: dict[str, float]
-    thresholds: dict[str, dict[str, float]]
-    threshold_version: str
 
 
 def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
@@ -70,9 +74,6 @@ def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
                     "row": cell.row,
                     "column": cell.column,
                     "kind": cell.classification.kind,
-                    "best_kind": cell.classification.best_kind,
-                    "confidence": cell.classification.confidence,
-                    "margin": cell.classification.margin,
                 }
                 for cell in snapshot.cells
             ],
@@ -82,27 +83,13 @@ def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
                 "position": counter.position,
                 "box": dict(counter.box),
                 "flag_kind": (
-                    counter.flag.kind if counter.flag is not None else "UNKNOWN"
-                ),
-                "flag_best_kind": (
-                    counter.flag.best_kind
-                    if counter.flag is not None
-                    else "UNKNOWN"
-                ),
-                "flag_confidence": (
-                    counter.flag.confidence if counter.flag is not None else 0.0
-                ),
-                "flag_margin": (
-                    counter.flag.margin if counter.flag is not None else 0.0
+                    counter.flag.kind if counter.flag is not None else UNKNOWN
                 ),
                 "display_text": counter.display_text,
                 "slots": [
                     {
                         "index": index,
                         "kind": slot.kind,
-                        "best_kind": slot.best_kind,
-                        "confidence": slot.confidence,
-                        "margin": slot.margin,
                     }
                     for index, slot in enumerate(counter.slots, start=1)
                 ],
@@ -110,10 +97,6 @@ def snapshot_to_qml(snapshot: RecognitionSnapshot) -> dict[str, object]:
             for counter in snapshot.counters
         ],
         "timings_ms": dict(snapshot.timings_ms),
-        "thresholds": {
-            name: dict(values) for name, values in snapshot.thresholds.items()
-        },
-        "threshold_version": snapshot.threshold_version,
     }
 
 
@@ -135,7 +118,7 @@ def make_board_key(
         "counters": [
             [
                 counter.position,
-                counter.flag.kind if counter.flag is not None else "UNKNOWN",
+                counter.flag.kind if counter.flag is not None else UNKNOWN,
                 [slot.kind for slot in counter.slots],
             ]
             for counter in counters
@@ -150,11 +133,11 @@ def make_board_key(
 
 
 def _slot_text(kind: str) -> str:
-    if kind == "BLANK":
+    if kind == SLOT_BLANK:
         return ""
-    if kind == "MINUS":
+    if kind == SLOT_MINUS:
         return "-"
-    if kind == "IMAGINARY":
+    if kind == SLOT_IMAGINARY:
         return "i"
     if len(kind) == 1 and kind.isdigit():
         return kind

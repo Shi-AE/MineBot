@@ -5,6 +5,13 @@ from pathlib import Path
 
 from PySide6.QtGui import QImage
 
+from ..constants import (
+    DEBUG_CELL_DIRNAME,
+    DEBUG_CELL_GLOB,
+    DEBUG_CELL_NAME_TEMPLATE,
+    DEBUG_COUNTER_PREFIX,
+    DEBUG_MINEFIELD_FILENAME,
+)
 
 @dataclass(frozen=True)
 class DebugFrame:
@@ -81,25 +88,31 @@ class DebugWriter:
 
     def _write(self, frame: DebugFrame) -> None:
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        self._save_atomic(frame.minefield, self._output_dir / "minefield.png")
+        self._save_atomic(
+            frame.minefield,
+            self._output_dir / DEBUG_MINEFIELD_FILENAME,
+        )
         expected_counters = set()
         for index, image in enumerate(frame.counters, start=1):
-            name = f"counter_{index}.png"
+            name = f"{DEBUG_COUNTER_PREFIX}{index}.png"
             expected_counters.add(name)
             self._save_atomic(image, self._output_dir / name)
-        for stale in self._output_dir.glob("counter_*.png"):
+        for stale in self._output_dir.glob(f"{DEBUG_COUNTER_PREFIX}*.png"):
             if stale.name not in expected_counters:
                 stale.unlink(missing_ok=True)
 
-        cells_dir = self._output_dir / "cells"
+        cells_dir = self._output_dir / DEBUG_CELL_DIRNAME
         cells_dir.mkdir(parents=True, exist_ok=True)
         expected_cells = set()
         for index, image in enumerate(frame.cells):
             row, column = divmod(index, frame.columns)
-            name = f"row_{row + 1:03d}_col_{column + 1:03d}.png"
+            name = DEBUG_CELL_NAME_TEMPLATE.format(
+                row=row + 1,
+                column=column + 1,
+            )
             expected_cells.add(name)
             self._save_atomic(image, cells_dir / name)
-        for stale in cells_dir.glob("row_*_col_*.png"):
+        for stale in cells_dir.glob(DEBUG_CELL_GLOB):
             if stale.name not in expected_cells:
                 stale.unlink(missing_ok=True)
 

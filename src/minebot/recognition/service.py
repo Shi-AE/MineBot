@@ -7,6 +7,19 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QRect, QThread, Signal, Slot
 from PySide6.QtGui import QImage
 
+from ..constants import (
+    CELL_CONFIDENCE_THRESHOLD,
+    CELL_MARGIN_THRESHOLD,
+    FLAG_CONFIDENCE_THRESHOLD,
+    FLAG_MARGIN_THRESHOLD,
+    MINEFIELD_EXPAND_FRACTION,
+    REQUIRED_COUNTER_COUNT,
+    SLOT_CONFIDENCE_THRESHOLD,
+    SLOT_COUNT,
+    SLOT_MARGIN_THRESHOLD,
+    UNKNOWN,
+    PROCESSOR_AUTO,
+)
 from .classifier import Classifier
 from .counter import split_counter
 from .detector import Box, DetectionResult, Detector
@@ -22,10 +35,9 @@ from .types import (
 from .writer import DebugFrame, DebugWriter
 
 
-_THRESHOLD_VERSION = "field-uncalibrated-v1"
 # 现场版始终接受 top-1 分类；阈值 0 使 UNKNOWN 仅保留给切分失败等
 # 异常路径，直到基于真实游戏帧重新校准阈值。
-_UNKNOWN = Classification("UNKNOWN", "UNKNOWN", 0.0, 0.0)
+_UNKNOWN = Classification(UNKNOWN, UNKNOWN, 0.0, 0.0)
 
 
 @dataclass(frozen=True)
@@ -34,9 +46,18 @@ class DecisionThresholds:
     margin: float
 
 
-_CELL_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
-_FLAG_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
-_SLOT_THRESHOLDS = DecisionThresholds(confidence=0.0, margin=0.0)
+_CELL_THRESHOLDS = DecisionThresholds(
+    confidence=CELL_CONFIDENCE_THRESHOLD,
+    margin=CELL_MARGIN_THRESHOLD,
+)
+_FLAG_THRESHOLDS = DecisionThresholds(
+    confidence=FLAG_CONFIDENCE_THRESHOLD,
+    margin=FLAG_MARGIN_THRESHOLD,
+)
+_SLOT_THRESHOLDS = DecisionThresholds(
+    confidence=SLOT_CONFIDENCE_THRESHOLD,
+    margin=SLOT_MARGIN_THRESHOLD,
+)
 
 
 @dataclass(frozen=True)
@@ -190,7 +211,7 @@ class _RecognitionThread(QThread):
             detection.minefield,
             image.width(),
             image.height(),
-            fraction=0.01,
+            fraction=MINEFIELD_EXPAND_FRACTION,
         )
         # 向外轻微外扩，保证边缘格子完整包含在裁图中。
         minefield_rect = _box_to_rect(
@@ -283,8 +304,6 @@ class _RecognitionThread(QThread):
                 "counters": counters_ms,
                 "total": total_ms,
             },
-            thresholds=_threshold_map(),
-            threshold_version=_THRESHOLD_VERSION,
         )
 
     @staticmethod
@@ -345,7 +364,12 @@ class _RecognitionThread(QThread):
                     position=index + 1,
                     box=_box_dict(box),
                     flag=flags.get(index),
-                    slots=tuple(slots_by_counter.get(index, [_UNKNOWN] * 4)),
+                    slots=tuple(
+                        slots_by_counter.get(
+                            index,
+                            [_UNKNOWN] * SLOT_COUNT,
+                        )
+                    ),
                 )
             )
         return tuple(counters)
@@ -362,7 +386,7 @@ class RecognitionService(QObject):
         self,
         models: RecognitionModels,
         output_dir: Path,
-        processor: str = "auto",
+        processor: str = PROCESSOR_AUTO,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -470,28 +494,14 @@ def _box_to_rect(box: Box, image_width: int, image_height: int) -> QRect:
 
 
 def _box_dict(box: Box) -> dict[str, float]:
+    # 检测置信度只服务于识别内部判断，不向下游传递。
     return {
         "x1": box.x1,
         "y1": box.y1,
         "x2": box.x2,
         "y2": box.y2,
-        "confidence": box.confidence,
     }
 
 
 def _elapsed_ms(started_at: float) -> float:
     return (time.perf_counter() - started_at) * 1000.0
-
-
-def _threshold_map() -> dict[str, dict[str, float]]:
-    return {
-        name: {
-            "confidence": thresholds.confidence,
-            "margin": thresholds.margin,
-        }
-        for name, thresholds in (
-            ("cell", _CELL_THRESHOLDS),
-            ("flag", _FLAG_THRESHOLDS),
-            ("slot", _SLOT_THRESHOLDS),
-        )
-    }

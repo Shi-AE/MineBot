@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from .constants import PROCESSOR_AUTO
 from .processors import detect_processor_options
 
 _COLOR_ENTRIES = (
@@ -68,7 +69,7 @@ class AppSettings(QObject):
         self._mask_opacity = _DEFAULT_MASK_OPACITY
         self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
         self._processor_options = detect_processor_options()
-        self._selected_processor = "auto"
+        self._selected_processor = PROCESSOR_AUTO
         self._active_processor_value = ""
         self._active_processor_label = "等待识别服务"
 
@@ -247,9 +248,13 @@ class AppSettings(QObject):
         except ValueError:
             self._capture_frequency = _DEFAULT_CAPTURE_FREQUENCY
 
-        processor = parser.get("general", "DetectionProcessor", fallback="auto")
+        processor = parser.get(
+            "general",
+            "DetectionProcessor",
+            fallback=PROCESSOR_AUTO,
+        )
         if processor not in self._processor_values():
-            processor = "auto"
+            processor = PROCESSOR_AUTO
         self._selected_processor = processor
 
     def _save(self) -> None:

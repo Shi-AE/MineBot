@@ -1,18 +1,20 @@
 import os
 import platform
 
+from .constants import PROCESSOR_AUTO, PROCESSOR_CPU, PROCESSOR_CUDA_PREFIX
+
 
 def detect_processor_options() -> list[dict[str, object]]:
     """列出设置页可用的 CPU 与 NVIDIA GPU；枚举失败时仅隐藏 GPU 项。"""
     options: list[dict[str, object]] = [
         {
-            "value": "auto",
+            "value": PROCESSOR_AUTO,
             "label": "自动（优先 GPU）",
             "kind": "auto",
             "device_id": -1,
         },
         {
-            "value": "cpu",
+            "value": PROCESSOR_CPU,
             "label": f"CPU · {_cpu_name()}",
             "kind": "cpu",
             "device_id": -1,
@@ -32,7 +34,7 @@ def detect_processor_options() -> list[dict[str, object]]:
                     name = name.decode("utf-8", errors="replace")
                 options.append(
                     {
-                        "value": f"cuda:{index}",
+                        "value": f"{PROCESSOR_CUDA_PREFIX}{index}",
                         "label": f"GPU {index} · {name}",
                         "kind": "cuda",
                         "device_id": index,

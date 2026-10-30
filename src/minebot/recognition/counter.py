@@ -3,6 +3,8 @@ from dataclasses import dataclass
 import numpy as np
 from PySide6.QtGui import QImage
 
+from ..constants import SLOT_COUNT
+
 
 @dataclass(frozen=True)
 class CounterParts:
@@ -56,12 +58,12 @@ def split_counter(image: QImage) -> CounterParts:
         raise ValueError("LED 面板宽度异常")
 
     boundaries = [
-        left + round(index * (right - left + 1) / 4)
-        for index in range(5)
+        left + round(index * (right - left + 1) / SLOT_COUNT)
+        for index in range(SLOT_COUNT + 1)
     ]
     slots = tuple(
         _rgb_to_qimage(rgb[top : bottom + 1, boundaries[index] : boundaries[index + 1]])
-        for index in range(4)
+        for index in range(SLOT_COUNT)
     )
     return CounterParts(
         flag=_rgb_to_qimage(rgb[:, :left]),

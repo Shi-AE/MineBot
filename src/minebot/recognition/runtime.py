@@ -3,6 +3,8 @@ import importlib.util
 import os
 from pathlib import Path
 
+from ..constants import PROCESSOR_AUTO, PROCESSOR_CPU, PROCESSOR_CUDA_PREFIX
+
 
 _DLL_HANDLES: list[object] = []
 
@@ -74,7 +76,7 @@ def create_session(
                 **session_args,
             )
             if session.get_providers()[0] == "CUDAExecutionProvider":
-                return session, f"cuda:{gpu_device}"
+                return session, f"{PROCESSOR_CUDA_PREFIX}{gpu_device}"
     # GPU Session 创建失败时回退 CPU；调用方通过返回的标签得知实际 Provider。
         except Exception:
             pass
@@ -86,7 +88,7 @@ def create_session(
         sess_options=_cpu_session_options(),
         providers=["CPUExecutionProvider"],
     )
-    return session, "cpu"
+    return session, PROCESSOR_CPU
 
 
 def _gpu_session_options() -> ort.SessionOptions:
@@ -110,13 +112,13 @@ def _cpu_session_options() -> ort.SessionOptions:
 
 
 def _gpu_device(processor: str) -> int | None:
-    if processor == "cpu":
+    if processor == PROCESSOR_CPU:
         return None
-    if processor == "auto":
+    if processor == PROCESSOR_AUTO:
         return 0
-    if processor.startswith("cuda:"):
+    if processor.startswith(PROCESSOR_CUDA_PREFIX):
         try:
-            return max(0, int(processor.split(":", 1)[1]))
+            return max(0, int(processor[len(PROCESSOR_CUDA_PREFIX):]))
         except ValueError:
             return None
     return None

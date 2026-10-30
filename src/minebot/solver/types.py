@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 
+from ..constants import FLAG_KINDS, HINT_KINDS, RESULT_STATUSES
 
-FLAG_KINDS = frozenset(
-    {
-        "FLAG_POSITIVE_REAL",
-        "FLAG_NEGATIVE_REAL",
-        "FLAG_POSITIVE_IMAGINARY",
-        "FLAG_NEGATIVE_IMAGINARY",
-    }
+__all__ = (
+    "FLAG_KINDS",
+    "HINT_KINDS",
+    "RESULT_STATUSES",
+    "SolverCellHint",
+    "SolverOption",
+    "SolverResult",
+    "validate_result",
 )
-HINT_KINDS = FLAG_KINDS | {"OPEN"}
-RESULT_STATUSES = frozenset({"solved", "partial", "conflict", "unknown"})
 
 
 @dataclass(frozen=True)

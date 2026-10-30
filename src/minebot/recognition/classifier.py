@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from PySide6.QtGui import QImage
 
+from ..constants import UNKNOWN
 from .runtime import create_session
 from .types import Classification
 
@@ -78,7 +79,7 @@ class Classifier:
             )
             results.append(
                 Classification(
-                    kind=best_kind if accepted else "UNKNOWN",
+                    kind=best_kind if accepted else UNKNOWN,
                     best_kind=best_kind,
                     confidence=confidence,
                     margin=margin,
